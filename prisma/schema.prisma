@@ -1,0 +1,113 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+// User model for drivers and admins
+model User {
+  id           Int           @id @default(autoincrement())
+  bloomerangId String?       @unique
+  name         String
+  email        String        @unique
+  phone        String?
+  role         String        @default("driver") // "driver" | "admin"
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  routes       Route[]
+  deliveryLogs DeliveryLog[]
+  
+  @@index([email])
+  @@index([bloomerangId])
+}
+
+// Route model for daily delivery routes
+model Route {
+  id        Int       @id @default(autoincrement())
+  name      String
+  driverId  Int?
+  date      DateTime
+  status    String    @default("pending") // "pending" | "active" | "completed"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  driver    User?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  addresses Address[]
+  
+  @@index([driverId])
+  @@index([date])
+  @@index([status])
+}
+
+// Address model for pickup/delivery locations
+model Address {
+  id                  Int           @id @default(autoincrement())
+  routeId             Int
+  sequenceOrder       Int
+  streetAddress       String
+  city                String
+  state               String
+  zipCode             String
+  latitude            Float?
+  longitude           Float?
+  specialInstructions String?
+  status              String        @default("pending") // "pending" | "completed" | "skipped"
+  
+  route        Route         @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  deliveryLogs DeliveryLog[]
+  
+  @@index([routeId])
+  @@index([status])
+}
+
+// DeliveryLog model for tracking completed deliveries
+model DeliveryLog {
+  id           Int       @id @default(autoincrement())
+  addressId    Int
+  driverId     Int
+  foodOutside  Boolean?
+  notes        String?
+  photoUrl     String?
+  completedAt  DateTime  @default(now())
+  gpsLatitude  Float?
+  gpsLongitude Float?
+
+  address Address @relation(fields: [addressId], references: [id])
+  driver  User    @relation(fields: [driverId], references: [id])
+
+  @@index([addressId])
+  @@index([driverId])
+  @@index([completedAt])
+}
+
+// RouteArchive model for permanent historical records of completed routes
+// This ensures route data is preserved even if the route is deleted from the active routes
+model RouteArchive {
+  id               Int      @id @default(autoincrement())
+  routeId          Int      // Original route ID
+  routeName        String
+  routeDate        DateTime
+  driverName       String?
+  driverEmail      String?
+  driverPhone      String?
+  totalStops       Int
+  completedStops   Int
+  skippedStops     Int
+  completionRate   Float
+  volunteerHours   Float
+  completedAt      DateTime @default(now()) // When the route was completed/archived
+  routeData        String   // JSON snapshot of full route data including addresses and delivery logs
+
+  @@index([routeDate])
+  @@index([completedAt])
+  @@index([driverEmail])
+}
