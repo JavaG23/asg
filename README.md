@@ -2,6 +2,10 @@
 
 A Progressive Web App (PWA) designed for nonprofit food delivery coordination. This application enables volunteer drivers to efficiently collect food from residential addresses and deliver to a central food pantry.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/JavaG23/asg)
+
+Thanks to Vercel for their support of open-source software.
+
 ## Features
 
 ### For Administrators
