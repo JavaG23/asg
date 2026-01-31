@@ -1,11 +1,10 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+// import bcrypt from 'bcrypt'  // UNCOMMENT AFTER MIGRATION
 import prisma from '@/lib/database/client'
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    // Mock credentials provider for development
-    // In production, this will be replaced with Bloomerang OAuth
     CredentialsProvider({
       id: 'credentials',
       name: 'Credentials',
@@ -20,12 +19,22 @@ export const authOptions: NextAuthOptions = {
 
         // Find user in database
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.toLowerCase() },
         })
 
-        if (!user) {
+        if (!user || !user.active) {
           return null
         }
+
+        // TODO: Enable password verification after running migration:
+        //   npx prisma migrate dev --name add_password_hash
+        // Then uncomment passwordHash in schema.prisma and the bcrypt code below:
+        //
+        // if (user.passwordHash) {
+        //   if (!credentials.password) return null
+        //   const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
+        //   if (!isValid) return null
+        // }
 
         // Return user object
         return {

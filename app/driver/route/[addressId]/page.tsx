@@ -239,7 +239,7 @@ export default function PickupConfirmation() {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                Delivery Address
+                Pickup Address
               </h2>
               <p className="text-gray-700 font-medium">
                 {addressData.address.streetAddress}

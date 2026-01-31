@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Route as RouteIcon, User, MapPin, CheckCircle, Clock, Pause, Map, Trash2, Download } from 'lucide-react'
+import { Route as RouteIcon, User, MapPin, CheckCircle, Clock, Pause, Map, Trash2, Download, UserPlus, AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/shared/Card'
 import { Button } from '@/components/shared/Button'
 import { Select } from '@/components/shared/Input'
@@ -12,6 +12,12 @@ import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { RouteMapView } from '@/components/admin/RouteMapView'
 import type { RouteWithAddresses } from '@/types'
 
+interface Driver {
+  id: number
+  name: string
+  email: string
+}
+
 interface RouteListProps {
   refreshTrigger?: number
 }
@@ -19,6 +25,7 @@ interface RouteListProps {
 export function RouteList({ refreshTrigger }: RouteListProps) {
   const router = useRouter()
   const [routes, setRoutes] = useState<any[]>([])
+  const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -27,6 +34,7 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
   const [showMapView, setShowMapView] = useState(false)
   const [selectedRouteForMap, setSelectedRouteForMap] = useState<any>(null)
   const [loadingRouteDetails, setLoadingRouteDetails] = useState(false)
+  const [assigningDriver, setAssigningDriver] = useState<number | null>(null)
 
   const fetchRoutes = async () => {
     try {
@@ -34,7 +42,8 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
       setError(null)
 
       const params = new URLSearchParams()
-      if (statusFilter !== 'all') {
+      // Handle status filter - 'unassigned' is a special filter, not a route status
+      if (statusFilter !== 'all' && statusFilter !== 'unassigned') {
         params.append('status', statusFilter)
       }
 
@@ -45,7 +54,14 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
         throw new Error(data.message || 'Failed to fetch routes')
       }
 
-      setRoutes(data.data)
+      let filteredRoutes = data.data
+
+      // Filter for unassigned routes (no driver)
+      if (statusFilter === 'unassigned') {
+        filteredRoutes = filteredRoutes.filter((r: any) => !r.driverId)
+      }
+
+      setRoutes(filteredRoutes)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load routes')
       console.error('Error fetching routes:', err)
@@ -54,8 +70,44 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
     }
   }
 
+  const fetchDrivers = async () => {
+    try {
+      const response = await fetch('/api/drivers')
+      const data = await response.json()
+      if (response.ok && data.success) {
+        setDrivers(data.data)
+      }
+    } catch (err) {
+      console.error('Error fetching drivers:', err)
+    }
+  }
+
+  const assignDriverToRoute = async (routeId: number, driverId: number | null) => {
+    setAssigningDriver(routeId)
+    try {
+      const response = await fetch(`/api/routes/${routeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to assign driver')
+      }
+
+      // Refresh routes list
+      fetchRoutes()
+    } catch (err) {
+      console.error('Error assigning driver:', err)
+      alert('Failed to assign driver to route')
+    } finally {
+      setAssigningDriver(null)
+    }
+  }
+
   useEffect(() => {
     fetchRoutes()
+    fetchDrivers()
   }, [statusFilter, refreshTrigger])
 
   const getStatusIcon = (status: string) => {
@@ -268,6 +320,7 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'All Routes' },
+                { value: 'unassigned', label: 'Needs Driver' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'active', label: 'Active' },
                 { value: 'completed', label: 'Completed' },
@@ -338,11 +391,41 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
                 {/* Map Icon Button */}
                 <button
                   onClick={(e) => handleViewMap(e, route.id)}
-                  className="flex-shrink-0 w-16 flex items-center justify-center bg-primary-50 hover:bg-primary-100 transition-colors border-r border-gray-200"
+                  className="flex-shrink-0 w-12 flex items-center justify-center bg-primary-50 hover:bg-primary-100 transition-colors border-r border-gray-200"
                   title="View route map"
                 >
-                  <Map className="w-6 h-6 text-primary-600" />
+                  <Map className="w-5 h-5 text-primary-600" />
                 </button>
+
+                {/* Driver Assignment Dropdown - only show for unassigned routes */}
+                {!route.driver && (
+                  <div
+                    className="flex-shrink-0 w-40 flex items-center border-r border-gray-200 bg-warning-50"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <select
+                      className="w-full h-full px-2 py-2 text-sm bg-transparent border-0 focus:ring-0 cursor-pointer text-warning-700"
+                      value=""
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        if (e.target.value) {
+                          assignDriverToRoute(route.id, parseInt(e.target.value))
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      disabled={assigningDriver === route.id}
+                    >
+                      <option value="">
+                        {assigningDriver === route.id ? 'Assigning...' : 'Assign Driver'}
+                      </option>
+                      {drivers.map((driver) => (
+                        <option key={driver.id} value={driver.id}>
+                          {driver.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Route Card Content */}
                 <Link href={`/admin/routes/${route.id}`} className="flex-1">
@@ -362,7 +445,12 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
                           {/* Driver */}
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4" />
-                            {route.driver ? route.driver.name : 'Unassigned'}
+                            {route.driver ? route.driver.name : (
+                              <span className="flex items-center gap-1 text-warning-600">
+                                <AlertTriangle className="w-3 h-3" />
+                                Needs Driver
+                              </span>
+                            )}
                           </div>
 
                           {/* Stops */}

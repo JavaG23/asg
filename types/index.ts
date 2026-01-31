@@ -20,15 +20,25 @@ export type RouteWithDetails = Route & {
 
 // CSV Import types
 export interface CSVRow {
-  route_name: string
-  driver_name: string
-  driver_email: string
-  sequence_order: string
-  street_address: string
-  city: string
-  state: string
-  zip_code: string
+  route_name?: string
+  'Route #'?: string
+  'Route'?: string
+  driver_name?: string
+  driver_email?: string
+  sequence_order?: string
+  'Stop #'?: string
+  street_address?: string
+  pickup_addess_firstline?: string
+  city?: string
+  pickup_city?: string
+  state?: string
+  Pickup_state?: string
+  zip_code?: string
+  pickup_zip?: string
   special_instructions?: string
+  Pickup_notes?: string
+  // Allow any other columns
+  [key: string]: string | undefined
 }
 
 export interface ImportResult {
@@ -36,6 +46,8 @@ export interface ImportResult {
   imported: number
   routes: Route[]
   errors: ImportError[]
+  routesWithoutDrivers?: number
+  routesWithDrivers?: number
 }
 
 export interface ImportError {

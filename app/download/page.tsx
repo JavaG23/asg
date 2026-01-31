@@ -71,7 +71,7 @@ export default function DownloadPage() {
               Install ASG App
             </h1>
             <p className="mt-2 text-blue-100 text-center">
-              A Simple Gesture - Food Delivery Coordination
+              A Simple Gesture - Food Pickup Coordination
             </p>
           </div>
 

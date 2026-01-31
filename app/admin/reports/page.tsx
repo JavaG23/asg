@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Users, MapPin, CheckCircle, Download, Search, FileText, Calendar } from 'lucide-react'
+import { Users, MapPin, CheckCircle, Download, Search, FileText, Calendar, Clock, TrendingUp } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/shared/Card'
 import { Button } from '@/components/shared/Button'
 import { Loading } from '@/components/shared/Loading'
@@ -48,12 +48,53 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ReportStats | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'people' | 'places' | 'routes'>('people')
+  const [activeTab, setActiveTab] = useState<'events' | 'people' | 'places' | 'routes'>('events')
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [addresses, setAddresses] = useState<Address[]>([])
   const [completedRoutes, setCompletedRoutes] = useState<CompletedRoute[]>([])
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
+
+  // ASG Event Dates
+  const eventDates = [
+    { date: '2026-02-07', label: 'February 7, 2026' },
+    { date: '2026-04-18', label: 'April 18, 2026' },
+    { date: '2026-06-06', label: 'June 6, 2026' },
+    { date: '2026-10-03', label: 'October 3, 2026' },
+    { date: '2027-08-08', label: 'August 8, 2027' },
+  ]
+
+  // Compute event day stats from completed routes
+  const getEventStats = (eventDate: string) => {
+    const eventRoutes = completedRoutes.filter(route => {
+      const routeDate = new Date(route.date).toISOString().split('T')[0]
+      return routeDate === eventDate
+    })
+
+    const totalStops = eventRoutes.reduce((sum, r) => sum + r.totalStops, 0)
+    const completedStops = eventRoutes.reduce((sum, r) => sum + r.completedStops, 0)
+    const uniqueDrivers = new Set(eventRoutes.map(r => r.driverName)).size
+
+    return {
+      routeCount: eventRoutes.length,
+      driverCount: uniqueDrivers,
+      totalStops,
+      completedStops,
+      completionRate: totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0,
+      routes: eventRoutes,
+    }
+  }
+
+  const getEventStatus = (eventDate: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const event = new Date(eventDate)
+    event.setHours(0, 0, 0, 0)
+
+    if (event < today) return 'past'
+    if (event.getTime() === today.getTime()) return 'today'
+    return 'upcoming'
+  }
 
   useEffect(() => {
     fetchReportData()
@@ -181,7 +222,7 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600 mt-1">View driver statistics, delivery history, and export data</p>
+          <p className="text-gray-600 mt-1">View driver statistics, pickup history, and export data</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleExportDailyReport}>
@@ -272,6 +313,19 @@ export default function ReportsPage() {
       <div className="border-b border-gray-200">
         <div className="flex gap-6">
           <button
+            onClick={() => setActiveTab('events')}
+            className={`pb-3 px-1 border-b-2 font-medium transition-colors ${
+              activeTab === 'events'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Event Days ({eventDates.length})
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab('people')}
             className={`pb-3 px-1 border-b-2 font-medium transition-colors ${
               activeTab === 'people'
@@ -315,6 +369,94 @@ export default function ReportsPage() {
 
       {/* Tab Content */}
       <div>
+        {activeTab === 'events' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {eventDates.map((event) => {
+              const eventStats = getEventStats(event.date)
+              const status = getEventStatus(event.date)
+              return (
+                <Card key={event.date} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-3 rounded-lg ${
+                          status === 'past' ? 'bg-gray-100' :
+                          status === 'today' ? 'bg-success-100' :
+                          'bg-primary-100'
+                        }`}>
+                          <Calendar className={`w-6 h-6 ${
+                            status === 'past' ? 'text-gray-500' :
+                            status === 'today' ? 'text-success-600' :
+                            'text-primary-600'
+                          }`} />
+                        </div>
+                        <div>
+                          <h3 className={`font-semibold ${
+                            status === 'past' ? 'text-gray-500' : 'text-gray-900'
+                          }`}>
+                            {event.label}
+                          </h3>
+                          <div className="flex items-center gap-1 mt-1">
+                            {status === 'past' ? (
+                              <span className="text-xs text-gray-400 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" /> Completed
+                              </span>
+                            ) : status === 'today' ? (
+                              <span className="text-xs text-success-600 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> Today
+                              </span>
+                            ) : (
+                              <span className="text-xs text-primary-600 flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> Upcoming
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-gray-600 text-xs">Routes</p>
+                        <p className="text-xl font-bold text-gray-900">{eventStats.routeCount}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-gray-600 text-xs">Drivers</p>
+                        <p className="text-xl font-bold text-gray-900">{eventStats.driverCount}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-gray-600 text-xs">Total Stops</p>
+                        <p className="text-xl font-bold text-gray-900">{eventStats.totalStops}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-gray-600 text-xs">Completion</p>
+                        <p className={`text-xl font-bold ${
+                          eventStats.completionRate === 100 ? 'text-success-600' :
+                          eventStats.completionRate > 0 ? 'text-primary-600' :
+                          'text-gray-400'
+                        }`}>
+                          {eventStats.completionRate}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {status === 'past' && eventStats.routeCount > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Stops Completed</span>
+                          <span className="font-semibold text-gray-900">
+                            {eventStats.completedStops} / {eventStats.totalStops}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+
         {activeTab === 'people' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDrivers.map((driver) => (
@@ -368,7 +510,7 @@ export default function ReportsPage() {
                   </div>
                   <div className="text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Times Delivered:</span>
+                      <span className="text-gray-600">Times Donated:</span>
                       <span className="font-semibold text-gray-900">{address.timesDelivered}</span>
                     </div>
                   </div>

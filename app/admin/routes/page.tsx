@@ -22,7 +22,7 @@ export default function RoutesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Routes</h1>
-          <p className="text-gray-600 mt-1">Manage and monitor all delivery routes</p>
+          <p className="text-gray-600 mt-1">Manage and monitor all pickup routes</p>
         </div>
         <Button
           variant="primary"

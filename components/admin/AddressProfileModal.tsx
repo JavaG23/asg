@@ -117,7 +117,7 @@ export function AddressProfileModal({ isOpen, onClose, addressId }: AddressProfi
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center gap-2 text-gray-600 mb-1">
                 <Calendar className="w-4 h-4" />
-                <span className="text-xs font-medium">Total Deliveries</span>
+                <span className="text-xs font-medium">Total Donations</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">{address.totalDeliveries}</p>
               {address.lastDeliveryDate && (
@@ -169,9 +169,9 @@ export function AddressProfileModal({ isOpen, onClose, addressId }: AddressProfi
             </div>
           )}
 
-          {/* Delivery History */}
+          {/* Donation History */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Delivery History</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Donation History</h3>
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="max-h-64 overflow-y-auto">
                 {address.deliveryHistory.length > 0 ? (
@@ -225,7 +225,7 @@ export function AddressProfileModal({ isOpen, onClose, addressId }: AddressProfi
                   </table>
                 ) : (
                   <div className="p-8 text-center text-gray-500">
-                    No delivery history available
+                    No donation history available
                   </div>
                 )}
               </div>

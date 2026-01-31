@@ -1,42 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseAndImportCSV } from '@/lib/services/csv-parser'
+import { parseAndImportDriversCSV } from '@/lib/services/csv-parser'
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const eventDateStr = formData.get('eventDate') as string | null
 
     if (!file) {
       return NextResponse.json(
         {
           success: false,
           error: 'No file provided',
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate event date
-    if (!eventDateStr) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No event date provided',
-          message: 'Please select an event date',
-        },
-        { status: 400 }
-      )
-    }
-
-    // Parse the event date
-    const eventDate = new Date(eventDateStr)
-    if (isNaN(eventDate.getTime())) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid event date',
-          message: 'Please provide a valid event date',
         },
         { status: 400 }
       )
@@ -70,37 +44,37 @@ export async function POST(request: NextRequest) {
     // Read file content
     const content = await file.text()
 
-    // Parse and import CSV with event date
-    const result = await parseAndImportCSV(content, eventDate)
+    // Parse and import drivers CSV
+    const result = await parseAndImportDriversCSV(content)
 
-    // If no routes were imported and there are errors, return failure
-    if (result.imported === 0 && result.errors.length > 0) {
+    if (!result.success && result.errors.length > 0 && result.imported === 0 && result.updated === 0) {
       return NextResponse.json(
         {
           success: false,
           error: 'Import failed',
           imported: result.imported,
-          routes: result.routes,
+          updated: result.updated,
+          drivers: result.drivers,
           errors: result.errors,
-          routesWithDrivers: result.routesWithDrivers || 0,
-          routesWithoutDrivers: result.routesWithoutDrivers || 0,
+          driversWithPassword: result.driversWithPassword,
+          driversWithoutPassword: result.driversWithoutPassword,
         },
         { status: 400 }
       )
     }
 
-    // Return success if routes were imported (even if there are some warnings)
     return NextResponse.json({
       success: true,
       imported: result.imported,
-      routes: result.routes,
+      updated: result.updated,
+      drivers: result.drivers,
       errors: result.errors,
-      routesWithDrivers: result.routesWithDrivers || 0,
-      routesWithoutDrivers: result.routesWithoutDrivers || 0,
-      message: `Successfully imported ${result.imported} routes (${result.routesWithDrivers || 0} with drivers, ${result.routesWithoutDrivers || 0} need assignment)`,
+      driversWithPassword: result.driversWithPassword,
+      driversWithoutPassword: result.driversWithoutPassword,
+      message: `Successfully imported ${result.imported} new driver(s) and updated ${result.updated} existing driver(s)`,
     })
   } catch (error) {
-    console.error('Error importing CSV:', error)
+    console.error('Error importing drivers CSV:', error)
     return NextResponse.json(
       {
         success: false,

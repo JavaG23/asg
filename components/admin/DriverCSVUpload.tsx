@@ -1,30 +1,20 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Route, Calendar } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Users, Key, KeyRound } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
 import { Card, CardContent } from '@/components/shared/Card'
 
-// ASG Event Dates
-const EVENT_DATES = [
-  { value: '2026-02-07', label: 'February 7, 2026' },
-  { value: '2026-04-18', label: 'April 18, 2026' },
-  { value: '2026-06-06', label: 'June 6, 2026' },
-  { value: '2026-10-03', label: 'October 3, 2026' },
-  { value: '2027-08-08', label: 'August 8, 2027' },
-]
-
-interface CSVUploadProps {
+interface DriverCSVUploadProps {
   onUploadComplete?: () => void
 }
 
-export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
+export function DriverCSVUpload({ onUploadComplete }: DriverCSVUploadProps) {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [eventDate, setEventDate] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDrag = (e: React.DragEvent) => {
@@ -61,11 +51,6 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
   const handleUpload = async () => {
     if (!file) return
 
-    if (!eventDate) {
-      setError('Please select an event date')
-      return
-    }
-
     setUploading(true)
     setError(null)
     setResult(null)
@@ -73,9 +58,8 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('eventDate', eventDate)
 
-      const response = await fetch('/api/import', {
+      const response = await fetch('/api/import/drivers', {
         method: 'POST',
         body: formData,
       })
@@ -83,7 +67,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.message || 'Failed to import CSV')
+        setError(data.message || 'Failed to import drivers CSV')
         setResult(data)
       } else {
         setResult(data)
@@ -103,7 +87,6 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     setFile(null)
     setResult(null)
     setError(null)
-    setEventDate('')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -113,8 +96,8 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Route className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-semibold">Import Routes from CSV</h3>
+          <Users className="w-5 h-5 text-primary-600" />
+          <h3 className="text-lg font-semibold">Import Drivers from CSV</h3>
         </div>
 
         {/* Upload Area */}
@@ -132,7 +115,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
           >
             <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p className="text-lg font-medium text-gray-900 mb-2">
-              Drag and drop your route list CSV here
+              Drag and drop your volunteer list CSV here
             </p>
             <p className="text-sm text-gray-500 mb-4">or</p>
             <Button
@@ -149,7 +132,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
               onChange={(e) => e.target.files && handleFileSelect(e.target.files[0])}
             />
             <p className="text-xs text-gray-500 mt-4">
-              Required: Route #, Stop #, street address. Optional: driver email (auto-assigns if provided)
+              CSV should contain: Route, First Name, Last Name, Volunteer Email, Mobile Phone Number
             </p>
           </div>
         )}
@@ -175,37 +158,6 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
               </button>
             </div>
 
-            {/* Event Date Selection */}
-            <div className="p-4 bg-primary-50 border border-primary-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-5 h-5 text-primary-600" />
-                <label className="font-medium text-primary-900">
-                  Select Event Date <span className="text-danger-500">*</span>
-                </label>
-              </div>
-              <select
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="w-full px-3 py-2 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">-- Select Event Date --</option>
-                {EVENT_DATES.map((date) => (
-                  <option key={date.value} value={date.value}>
-                    {date.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-primary-700 mt-2">
-                Routes will be associated with this event date
-              </p>
-            </div>
-
-            {error && !result && (
-              <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg">
-                <p className="text-sm text-danger-700">{error}</p>
-              </div>
-            )}
-
             <div className="flex gap-3">
               <Button
                 variant="primary"
@@ -213,7 +165,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
                 loading={uploading}
                 className="flex-1"
               >
-                Import Routes
+                Import Drivers
               </Button>
               <Button variant="secondary" onClick={handleReset}>
                 Cancel
@@ -225,73 +177,54 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
         {/* Upload Result */}
         {result && (
           <div className="space-y-4">
-            {result.success || result.imported > 0 ? (
-              <>
-                <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-success-600 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-success-900 mb-1">
-                        Import Successful!
-                      </h4>
-                      <p className="text-sm text-success-700">
-                        Successfully imported {result.imported} route(s) with{' '}
-                        {result.routes?.reduce((acc: number, r: any) => acc + r.addresses.length, 0) || 0}{' '}
-                        total addresses.
-                      </p>
-                      {/* Driver assignment summary */}
-                      {(result.routesWithDrivers !== undefined || result.routesWithoutDrivers !== undefined) && (
-                        <div className="mt-2 text-sm text-success-700">
-                          <p>• {result.routesWithDrivers || 0} route(s) with drivers assigned</p>
-                          <p>• {result.routesWithoutDrivers || 0} route(s) need driver assignment</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Warning for routes without drivers */}
-                {result.routesWithoutDrivers > 0 && (
-                  <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-6 h-6 text-warning-600 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-warning-900 mb-1">
-                          Routes Need Driver Assignment
-                        </h4>
-                        <p className="text-sm text-warning-700">
-                          {result.routesWithoutDrivers} route(s) were created without drivers.
-                          Use the Routes page to manually assign drivers, or upload drivers first using the Volunteer List CSV.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Show any warnings/errors even on success */}
-                {result.errors && result.errors.length > 0 && (
-                  <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-warning-900 mb-1">Warnings:</p>
-                        <ul className="text-sm text-warning-700 space-y-1">
-                          {result.errors.slice(0, 5).map((err: any, i: number) => (
-                            <li key={i}>
-                              {err.row > 0 ? `Row ${err.row}: ` : ''}{err.message}
+            {result.success ? (
+              <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-6 h-6 text-success-600 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-success-900 mb-1">
+                      Import Successful!
+                    </h4>
+                    <p className="text-sm text-success-700">
+                      {result.imported > 0 && `Created ${result.imported} new driver(s). `}
+                      {result.updated > 0 && `Updated ${result.updated} existing driver(s). `}
+                      {result.imported === 0 && result.updated === 0 && 'No changes made.'}
+                    </p>
+                    {result.drivers && result.drivers.length > 0 && (
+                      <div className="mt-3 max-h-40 overflow-y-auto">
+                        <p className="text-xs font-medium text-success-800 mb-1">Drivers processed:</p>
+                        <ul className="text-xs text-success-700 space-y-1">
+                          {result.drivers.slice(0, 10).map((driver: any) => (
+                            <li key={driver.id} className="flex items-center gap-2">
+                              <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                driver.isNew ? 'bg-success-200 text-success-800' : 'bg-gray-200 text-gray-700'
+                              }`}>
+                                {driver.isNew ? 'New' : 'Updated'}
+                              </span>
+                              <span className={`px-1.5 py-0.5 rounded text-xs flex items-center gap-1 ${
+                                driver.hasPassword ? 'bg-primary-100 text-primary-800' : 'bg-warning-100 text-warning-800'
+                              }`}>
+                                {driver.hasPassword ? (
+                                  <><Key className="w-3 h-3" /> Ready</>
+                                ) : (
+                                  <><KeyRound className="w-3 h-3" /> Needs Password</>
+                                )}
+                              </span>
+                              {driver.name} ({driver.email})
+                              {driver.routeNumber && ` → Route ${driver.routeNumber}`}
                             </li>
                           ))}
                         </ul>
-                        {result.errors.length > 5 && (
-                          <p className="text-sm text-warning-600 mt-1">
-                            ...and {result.errors.length - 5} more
+                        {result.drivers.length > 10 && (
+                          <p className="text-xs text-success-600 mt-1">
+                            ...and {result.drivers.length - 10} more
                           </p>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </>
+                </div>
+              </div>
             ) : (
               <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -307,7 +240,7 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
                         <ul className="text-sm text-danger-700 list-disc list-inside">
                           {result.errors.slice(0, 5).map((err: any, i: number) => (
                             <li key={i}>
-                              {err.row > 0 ? `Row ${err.row}: ` : ''}{err.message}
+                              Row {err.row}: {err.message}
                             </li>
                           ))}
                         </ul>
@@ -320,6 +253,53 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Password Status Summary */}
+            {(result.driversWithPassword !== undefined || result.driversWithoutPassword !== undefined) && (
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <KeyRound className="w-5 h-5 text-gray-600" />
+                  <h4 className="font-medium text-gray-900">Password Status</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-primary-500"></span>
+                    <span className="text-gray-700">{result.driversWithPassword || 0} Ready to login</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-warning-500"></span>
+                    <span className="text-gray-700">{result.driversWithoutPassword || 0} Need password setup</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Warning for drivers without passwords */}
+            {result.driversWithoutPassword > 0 && (
+              <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-warning-600 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-warning-900 mb-1">
+                      Drivers Need Password Setup
+                    </h4>
+                    <p className="text-sm text-warning-700">
+                      {result.driversWithoutPassword} driver(s) do not have passwords set.
+                      They will need to complete password setup before they can login securely.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show partial success if some drivers were imported */}
+            {!result.success && (result.imported > 0 || result.updated > 0) && (
+              <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                <p className="text-sm text-warning-800">
+                  Partial import: {result.imported} new, {result.updated} updated, {result.errors?.length || 0} errors
+                </p>
               </div>
             )}
 

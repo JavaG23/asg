@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Route, Users, MapPin, TrendingUp } from 'lucide-react'
+import { Route, Users, MapPin, TrendingUp, Calendar, CheckCircle, Clock } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/shared/Card'
 import { CSVUpload } from '@/components/admin/CSVUpload'
+import { DriverCSVUpload } from '@/components/admin/DriverCSVUpload'
 import { RouteList } from '@/components/admin/RouteList'
 import { Loading } from '@/components/shared/Loading'
 
@@ -51,6 +52,26 @@ export default function AdminDashboard() {
 
   const handleUploadComplete = () => {
     setRefreshTrigger((prev) => prev + 1)
+  }
+
+  // ASG Event Dates
+  const eventDates = [
+    { date: new Date('2026-02-07'), label: 'February 7, 2026' },
+    { date: new Date('2026-04-18'), label: 'April 18, 2026' },
+    { date: new Date('2026-06-06'), label: 'June 6, 2026' },
+    { date: new Date('2026-10-03'), label: 'October 3, 2026' },
+    { date: new Date('2027-08-08'), label: 'August 8, 2027' },
+  ]
+
+  const getEventStatus = (eventDate: Date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const event = new Date(eventDate)
+    event.setHours(0, 0, 0, 0)
+
+    if (event < today) return 'past'
+    if (event.getTime() === today.getTime()) return 'today'
+    return 'upcoming'
   }
 
   const statCards = [
@@ -122,8 +143,65 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* CSV Upload */}
-      <CSVUpload onUploadComplete={handleUploadComplete} />
+      {/* Upcoming Event Days */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">ASG Event Days</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {eventDates.map((event) => {
+            const status = getEventStatus(event.date)
+            return (
+              <Card key={event.label}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      status === 'past' ? 'bg-gray-100' :
+                      status === 'today' ? 'bg-success-100' :
+                      'bg-primary-100'
+                    }`}>
+                      <Calendar className={`w-5 h-5 ${
+                        status === 'past' ? 'text-gray-500' :
+                        status === 'today' ? 'text-success-600' :
+                        'text-primary-600'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-semibold ${
+                        status === 'past' ? 'text-gray-500' : 'text-gray-900'
+                      }`}>
+                        {event.label}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {status === 'past' ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-400">Completed</span>
+                          </>
+                        ) : status === 'today' ? (
+                          <>
+                            <Clock className="w-3 h-3 text-success-600" />
+                            <span className="text-xs text-success-600 font-medium">Today</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3 h-3 text-primary-500" />
+                            <span className="text-xs text-primary-600">Upcoming</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* CSV Uploads */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DriverCSVUpload onUploadComplete={handleUploadComplete} />
+        <CSVUpload onUploadComplete={handleUploadComplete} />
+      </div>
 
       {/* Today's Routes */}
       <div>

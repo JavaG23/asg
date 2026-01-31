@@ -145,7 +145,7 @@ export default function DriversPage() {
                       <p className="text-xl font-bold text-success-600">{driver.stats.completedRoutes}</p>
                     </div>
                     <div>
-                      <p className="text-gray-600">Total Deliveries</p>
+                      <p className="text-gray-600">Total Pickups</p>
                       <p className="text-xl font-bold text-primary-600">{driver.stats.totalDeliveries}</p>
                     </div>
                   </div>
