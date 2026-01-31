@@ -5,9 +5,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const active = searchParams.get('active')
+    const role = searchParams.get('role')
+    const includeAll = searchParams.get('includeAll')
 
-    const where: any = {
-      role: 'driver',
+    const where: any = {}
+
+    // Filter by role - default to drivers only unless includeAll or specific role requested
+    if (includeAll === 'true') {
+      // Include all users
+    } else if (role) {
+      where.role = role
+    } else {
+      where.role = 'driver'
     }
 
     if (active !== null) {

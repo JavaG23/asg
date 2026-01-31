@@ -182,7 +182,7 @@ This document tracks development tasks for the ASG App production authentication
 ## Email Notification System
 
 ### 9. Create email notification system for route assignments
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** #17, #11
 - **Description:** Implement email sending logic:
   1. For drivers WITHOUT password: send "route assigned + set your password" email with password reset link
@@ -190,10 +190,25 @@ This document tracks development tasks for the ASG App production authentication
 
   Use a reliable email service (e.g., Resend, SendGrid, or nodemailer with SMTP).
 
+  **Implementation:**
+  - Email is OPT-IN (default: don't send) to prevent accidental emails during testing
+  - Confirmation modal shows driver email, route details before sending
+  - Admin explicitly chooses "Send Email" or "Don't Send Email"
+  - Created /api/auth/send-route-assignment endpoint
+  - Route assignment email includes password setup link if driver has no password
+  - Uses Resend email service
+
 ### 10. Add admin email opt-out toggle
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** #9
 - **Description:** Add a checkbox/toggle in the import UI that allows admin to disable sending emails during import. Default to OFF (no emails) for safety during testing. Show clear indication of email status before confirming import.
+
+  **Implementation:**
+  - Instead of a toggle, implemented explicit opt-in confirmation modal
+  - Every route assignment shows modal asking "Send Email" or "Don't Send Email"
+  - Modal shows exactly which email address will receive the notification
+  - Default action requires explicit choice - no accidental emails
+  - This approach is safer than a global toggle as it requires confirmation per-action
 
 ---
 
@@ -341,7 +356,7 @@ This document tracks development tasks for the ASG App production authentication
   6. Deactivate/remove donor option
 
 ### 24. Add admin UI to edit driver information
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** None
 - **Description:** Add ability for admin to view and edit driver information.
 
@@ -352,6 +367,17 @@ This document tracks development tasks for the ASG App production authentication
   4. View driver history: routes completed, events participated
   5. Reset password option (send reset email)
   6. Deactivate driver option
+
+  **Implementation:**
+  - Renamed page to "Users" to manage both drivers and admins
+  - Created /api/users/[id] endpoint for user CRUD operations
+  - Created UserEditModal component for editing user details
+  - Click any user to open edit modal
+  - Can change name, email, phone, role (driver/admin), active status
+  - Can send password reset email from modal
+  - Role filter dropdown (All/Drivers/Admins/Active/Inactive)
+  - Shows password status (set/not set) with warning badge
+  - Prevents self-demotion and self-deactivation for safety
 
 ### 30. Add driver self-edit profile from driver dashboard
 - **Status:** [ ] Pending
