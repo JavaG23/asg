@@ -507,6 +507,69 @@ This document tracks development tasks for the ASG App production authentication
 
 ---
 
+## User Roles & Interfaces
+
+### 34. Implement separate user role interfaces
+- **Status:** [ ] Pending
+- **Blocked by:** None
+- **Description:** Create distinct interfaces and UX for different user categories. Each role has different needs and should have a tailored experience.
+
+  **Current Roles:**
+  1. **Admin** - Full system access, manage routes/drivers/events, view reports
+  2. **Driver** - View assigned routes, mark stops complete, navigate to pickups
+
+  **Planned Roles:**
+  3. **Donor** - Interface for food donors (businesses/individuals donating food)
+     - View upcoming pickup dates
+     - Confirm donation availability
+     - Update contact/address info
+     - View donation history
+  4. **Volunteer** - General volunteers (non-drivers) for hour tracking
+     - Log volunteer hours
+     - View scheduled shifts
+     - Track total hours contributed
+     - Sign up for available shifts
+
+  **Implementation considerations:**
+  - Add `role` field to User model (enum: ADMIN, DRIVER, DONOR, VOLUNTEER)
+  - Role-based routing after login (redirect to appropriate dashboard)
+  - Separate layouts/navigation for each role
+  - Permission guards on API routes
+  - Users may have multiple roles (e.g., volunteer who also drives)
+
+### 35. Add Donor portal interface
+- **Status:** [ ] Pending
+- **Blocked by:** #34, #22 (donor model)
+- **Description:** Create a dedicated interface for food donors.
+
+  **Features:**
+  - Donor login/authentication
+  - Dashboard showing upcoming pickup dates
+  - Confirm/cancel donation for upcoming events
+  - Update business/contact information
+  - View past donation history
+  - Special instructions for drivers (access codes, loading dock, etc.)
+
+### 36. Add Volunteer hour tracking system
+- **Status:** [ ] Pending
+- **Blocked by:** #34
+- **Description:** Create a system for volunteers to log and track their hours.
+
+  **Features:**
+  - Volunteer login/authentication
+  - Clock in/out functionality
+  - Manual hour entry with approval workflow
+  - View personal hour history
+  - Admin view of all volunteer hours
+  - Export hours report (for volunteer recognition, grants, etc.)
+  - Shift signup for upcoming events
+
+  **New models needed:**
+  - VolunteerShift (date, startTime, endTime, role, maxVolunteers)
+  - VolunteerHourLog (userId, shiftId, clockIn, clockOut, status, approvedBy)
+
+---
+
 ## Additional Tasks
 
 <!-- Add new tasks below this line -->

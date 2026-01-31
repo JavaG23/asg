@@ -1,9 +1,12 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-// import bcrypt from 'bcrypt'  // UNCOMMENT AFTER MIGRATION
+import { PrismaAdapter } from '@auth/prisma-adapter'
+import type { Adapter } from 'next-auth/adapters'
+import bcrypt from 'bcrypt'
 import prisma from '@/lib/database/client'
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     CredentialsProvider({
       id: 'credentials',
@@ -26,15 +29,12 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // TODO: Enable password verification after running migration:
-        //   npx prisma migrate dev --name add_password_hash
-        // Then uncomment passwordHash in schema.prisma and the bcrypt code below:
-        //
-        // if (user.passwordHash) {
-        //   if (!credentials.password) return null
-        //   const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
-        //   if (!isValid) return null
-        // }
+        // Password verification for users with passwordHash set
+        if (user.passwordHash) {
+          if (!credentials.password) return null
+          const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
+          if (!isValid) return null
+        }
 
         // Return user object
         return {
@@ -54,10 +54,24 @@ export const authOptions: NextAuthOptions = {
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token, user }) {
       if (session.user) {
-        (session.user as any).id = token.id as string
-        (session.user as any).role = token.role as string
+        // For JWT strategy
+        if (token) {
+          (session.user as any).id = token.id as string
+          (session.user as any).role = token.role as string
+        }
+        // For database strategy, fetch role from database
+        if (user) {
+          (session.user as any).id = user.id
+          const dbUser = await prisma.user.findUnique({
+            where: { id: parseInt(user.id) },
+            select: { role: true }
+          })
+          if (dbUser) {
+            (session.user as any).role = dbUser.role
+          }
+        }
       }
       return session
     },
@@ -68,7 +82,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 365 * 24 * 60 * 60, // 1 year - effectively indefinite for PWA
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

@@ -13,19 +13,22 @@ datasource db {
 
 // User model for drivers and admins
 model User {
-  id           Int           @id @default(autoincrement())
-  bloomerangId String?       @unique
-  name         String
-  email        String        @unique
-  phone        String?
-  // passwordHash String?    // UNCOMMENT AFTER RUNNING MIGRATION: npx prisma migrate dev --name add_password_hash
-  role         String        @default("driver") // "driver" | "admin"
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                       Int           @id @default(autoincrement())
+  bloomerangId             String?       @unique
+  name                     String
+  email                    String        @unique
+  phone                    String?
+  passwordHash             String?
+  passwordResetToken       String?       @unique
+  passwordResetTokenExpiry DateTime?
+  role                     String        @default("driver") // "driver" | "admin"
+  active                   Boolean       @default(true)
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 
   routes       Route[]
   deliveryLogs DeliveryLog[]
+  sessions     Session[]
 
   @@index([email])
   @@index([bloomerangId])
@@ -111,4 +114,15 @@ model RouteArchive {
   @@index([routeDate])
   @@index([completedAt])
   @@index([driverEmail])
+}
+
+// Session model for persistent database sessions
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
