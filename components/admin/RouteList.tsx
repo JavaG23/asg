@@ -10,12 +10,14 @@ import { Select } from '@/components/shared/Input'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { RouteMapView } from '@/components/admin/RouteMapView'
+import { EmailConfirmationModal } from '@/components/admin/EmailConfirmationModal'
 import type { RouteWithAddresses } from '@/types'
 
 interface Driver {
   id: number
   name: string
   email: string
+  hasPassword?: boolean
 }
 
 interface RouteListProps {
@@ -35,6 +37,16 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
   const [selectedRouteForMap, setSelectedRouteForMap] = useState<any>(null)
   const [loadingRouteDetails, setLoadingRouteDetails] = useState(false)
   const [assigningDriver, setAssigningDriver] = useState<number | null>(null)
+
+  // Email confirmation modal state
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [pendingAssignment, setPendingAssignment] = useState<{
+    routeId: number
+    driverId: number
+    driver: Driver
+    route: any
+  } | null>(null)
+  const [isAssigning, setIsAssigning] = useState(false)
 
   const fetchRoutes = async () => {
     try {
@@ -82,9 +94,29 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
     }
   }
 
-  const assignDriverToRoute = async (routeId: number, driverId: number | null) => {
-    setAssigningDriver(routeId)
+  // Called when driver is selected from dropdown - shows confirmation modal
+  const handleDriverSelect = (routeId: number, driverId: number) => {
+    const driver = drivers.find(d => d.id === driverId)
+    const route = routes.find(r => r.id === routeId)
+
+    if (!driver || !route) {
+      console.error('Driver or route not found')
+      return
+    }
+
+    setPendingAssignment({ routeId, driverId, driver, route })
+    setEmailModalOpen(true)
+  }
+
+  // Called from modal - performs the actual assignment
+  const confirmAssignment = async (sendEmail: boolean) => {
+    if (!pendingAssignment) return
+
+    const { routeId, driverId } = pendingAssignment
+    setIsAssigning(true)
+
     try {
+      // First assign the driver to the route
       const response = await fetch(`/api/routes/${routeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -95,13 +127,36 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
         throw new Error('Failed to assign driver')
       }
 
-      // Refresh routes list
+      // If sendEmail is true, send the notification
+      if (sendEmail) {
+        const emailResponse = await fetch('/api/auth/send-route-assignment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ routeId, driverId }),
+        })
+
+        const emailResult = await emailResponse.json()
+        if (!emailResult.success) {
+          alert(`Driver assigned but email failed: ${emailResult.error}`)
+        }
+      }
+
+      // Close modal and refresh
+      setEmailModalOpen(false)
+      setPendingAssignment(null)
       fetchRoutes()
     } catch (err) {
       console.error('Error assigning driver:', err)
       alert('Failed to assign driver to route')
     } finally {
-      setAssigningDriver(null)
+      setIsAssigning(false)
+    }
+  }
+
+  const closeEmailModal = () => {
+    if (!isAssigning) {
+      setEmailModalOpen(false)
+      setPendingAssignment(null)
     }
   }
 
@@ -409,15 +464,13 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
                       onChange={(e) => {
                         e.stopPropagation()
                         if (e.target.value) {
-                          assignDriverToRoute(route.id, parseInt(e.target.value))
+                          handleDriverSelect(route.id, parseInt(e.target.value))
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      disabled={assigningDriver === route.id}
+                      disabled={isAssigning}
                     >
-                      <option value="">
-                        {assigningDriver === route.id ? 'Assigning...' : 'Assign Driver'}
-                      </option>
+                      <option value="">Assign Driver</option>
                       {drivers.map((driver) => (
                         <option key={driver.id} value={driver.id}>
                           {driver.name}
@@ -518,6 +571,27 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
               throw err
             }
           }}
+        />
+      )}
+
+      {/* Email Confirmation Modal */}
+      {pendingAssignment && (
+        <EmailConfirmationModal
+          isOpen={emailModalOpen}
+          onClose={closeEmailModal}
+          onConfirm={confirmAssignment}
+          driverName={pendingAssignment.driver.name}
+          driverEmail={pendingAssignment.driver.email}
+          routeName={pendingAssignment.route.name}
+          routeDate={new Date(pendingAssignment.route.date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })}
+          stopCount={pendingAssignment.route.stats?.totalStops || pendingAssignment.route.addresses?.length || 0}
+          hasPassword={!!pendingAssignment.driver.hasPassword}
+          isLoading={isAssigning}
         />
       )}
     </div>

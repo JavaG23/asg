@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
         phone: true,
         active: true,
         bloomerangId: true,
+        passwordHash: true,
         routes: {
           select: {
             id: true,
@@ -59,8 +60,10 @@ export async function GET(request: NextRequest) {
           where: { driverId: driver.id },
         })
 
+        const { passwordHash, ...driverWithoutHash } = driver
         return {
-          ...driver,
+          ...driverWithoutHash,
+          hasPassword: !!passwordHash,
           stats: {
             totalRoutes,
             completedRoutes,
