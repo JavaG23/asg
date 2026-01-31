@@ -51,7 +51,7 @@ This document tracks development tasks for the ASG App production authentication
   - Inactive users are now rejected at login
 
 ### 11. Create password reset flow for drivers
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** None
 - **Description:** Implement password reset functionality:
   1. Password reset request page
@@ -60,6 +60,16 @@ This document tracks development tasks for the ASG App production authentication
   4. Token validation and password update
 
   This is needed for new drivers to set their initial password.
+
+  **Implementation:**
+  - Added Resend email service (lib/services/email.ts)
+  - Created forgot-password page and API endpoint
+  - Created reset-password page with token validation
+  - Created validate-reset-token API endpoint
+  - Added password field to login page with "Forgot password?" link
+  - Secure token generation with 1-hour expiry
+  - Updated Prisma schema with passwordHash, passwordResetToken, passwordResetTokenExpiry fields
+  - Using bcryptjs for cross-platform password hashing
 
 ---
 
@@ -108,7 +118,7 @@ This document tracks development tasks for the ASG App production authentication
   - Warning displayed if any drivers need password setup
 
 ### 18. Add admin option to send password setup emails
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** #17, #11
 - **Description:** After driver upload and status check, provide admin with option to send password setup emails:
 
@@ -118,6 +128,14 @@ This document tracks development tasks for the ASG App production authentication
   4. "Send Password Setup Emails" button
   5. Email contains link to set initial password
   6. Show confirmation of emails sent
+
+  **Implementation:**
+  - Added email selection UI to DriverCSVUpload component
+  - Drivers without passwords shown with checkboxes for selection
+  - "Select All" / "Deselect All" toggle
+  - Created /api/auth/send-password-setup endpoint for bulk email sending
+  - Uses same password reset email flow with 7-day expiry for setup links
+  - Shows success/failure results after sending
 
 ### 19. Add route CSV upload with driver detection
 - **Status:** [x] Completed (2026-01-30)

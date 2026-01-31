@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Users, Key, KeyRound } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Users, Key, KeyRound, Mail, Send } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
 import { Card, CardContent } from '@/components/shared/Card'
 
@@ -16,6 +16,11 @@ export function DriverCSVUpload({ onUploadComplete }: DriverCSVUploadProps) {
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Email sending state
+  const [selectedDrivers, setSelectedDrivers] = useState<number[]>([])
+  const [sendingEmails, setSendingEmails] = useState(false)
+  const [emailResult, setEmailResult] = useState<any>(null)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -87,8 +92,56 @@ export function DriverCSVUpload({ onUploadComplete }: DriverCSVUploadProps) {
     setFile(null)
     setResult(null)
     setError(null)
+    setSelectedDrivers([])
+    setEmailResult(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  // Get drivers without passwords from result
+  const driversNeedingPassword = result?.drivers?.filter((d: any) => !d.hasPassword) || []
+
+  const handleSelectDriver = (driverId: number) => {
+    setSelectedDrivers(prev =>
+      prev.includes(driverId)
+        ? prev.filter(id => id !== driverId)
+        : [...prev, driverId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedDrivers.length === driversNeedingPassword.length) {
+      setSelectedDrivers([])
+    } else {
+      setSelectedDrivers(driversNeedingPassword.map((d: any) => d.id))
+    }
+  }
+
+  const handleSendEmails = async () => {
+    if (selectedDrivers.length === 0) return
+
+    setSendingEmails(true)
+    setEmailResult(null)
+
+    try {
+      const response = await fetch('/api/auth/send-password-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverIds: selectedDrivers }),
+      })
+
+      const data = await response.json()
+      setEmailResult(data)
+
+      if (data.success && data.sent > 0) {
+        // Clear selection for successfully sent
+        setSelectedDrivers([])
+      }
+    } catch (err) {
+      setEmailResult({ success: false, error: 'Failed to send emails' })
+    } finally {
+      setSendingEmails(false)
     }
   }
 
@@ -276,20 +329,106 @@ export function DriverCSVUpload({ onUploadComplete }: DriverCSVUploadProps) {
               </div>
             )}
 
-            {/* Warning for drivers without passwords */}
+            {/* Warning and Email Setup for drivers without passwords */}
             {result.driversWithoutPassword > 0 && (
-              <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-6 h-6 text-warning-600 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h4 className="font-medium text-warning-900 mb-1">
-                      Drivers Need Password Setup
-                    </h4>
-                    <p className="text-sm text-warning-700">
-                      {result.driversWithoutPassword} driver(s) do not have passwords set.
-                      They will need to complete password setup before they can login securely.
-                    </p>
+              <div className="space-y-4">
+                <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-6 h-6 text-warning-600 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-warning-900 mb-1">
+                        Drivers Need Password Setup
+                      </h4>
+                      <p className="text-sm text-warning-700">
+                        {result.driversWithoutPassword} driver(s) do not have passwords set.
+                        Select drivers below to send password setup emails.
+                      </p>
+                    </div>
                   </div>
+                </div>
+
+                {/* Driver Selection for Email */}
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-gray-600" />
+                      <h4 className="font-medium text-gray-900">Send Password Setup Emails</h4>
+                    </div>
+                    <button
+                      onClick={handleSelectAll}
+                      className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      {selectedDrivers.length === driversNeedingPassword.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-2 mb-4">
+                    {driversNeedingPassword.map((driver: any) => (
+                      <label
+                        key={driver.id}
+                        className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDrivers.includes(driver.id)}
+                          onChange={() => handleSelectDriver(driver.id)}
+                          className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{driver.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{driver.email}</p>
+                        </div>
+                        {driver.routeNumber && (
+                          <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">
+                            Route {driver.routeNumber}
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Email Result */}
+                  {emailResult && (
+                    <div className={`p-3 rounded-lg mb-4 ${
+                      emailResult.success && emailResult.sent > 0
+                        ? 'bg-success-50 border border-success-200'
+                        : emailResult.failed > 0
+                        ? 'bg-warning-50 border border-warning-200'
+                        : 'bg-gray-100 border border-gray-200'
+                    }`}>
+                      <p className={`text-sm ${
+                        emailResult.success && emailResult.sent > 0
+                          ? 'text-success-700'
+                          : emailResult.failed > 0
+                          ? 'text-warning-700'
+                          : 'text-gray-700'
+                      }`}>
+                        {emailResult.message || emailResult.error}
+                      </p>
+                      {emailResult.errors?.length > 0 && (
+                        <ul className="mt-2 text-xs text-warning-600">
+                          {emailResult.errors.slice(0, 3).map((e: any, i: number) => (
+                            <li key={i}>{e.email}: {e.error}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  <Button
+                    variant="primary"
+                    onClick={handleSendEmails}
+                    loading={sendingEmails}
+                    disabled={selectedDrivers.length === 0 || sendingEmails}
+                    className="w-full"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Send to {selectedDrivers.length} Driver{selectedDrivers.length !== 1 ? 's' : ''}
+                  </Button>
+
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Emails contain a link to set their password (valid for 7 days)
+                  </p>
                 </div>
               </div>
             )}
