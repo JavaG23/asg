@@ -458,7 +458,7 @@ This document tracks development tasks for the ASG App production authentication
   - Reference ID for Bloomerang sync
 
 ### 25. Add admin UI to edit routes and addresses
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** None
 - **Description:** Add ability for admin to edit route and address details.
 
@@ -469,6 +469,16 @@ This document tracks development tasks for the ASG App production authentication
   4. Reassign route to different driver
   5. Change stop order (drag-and-drop or manual)
   6. Delete route with confirmation
+
+  **Implementation:**
+  - Created RouteEditModal for editing route name, date, and status
+  - Created AddAddressModal for adding new stops to a route
+  - Added DELETE endpoint to /api/addresses/[addressId]
+  - Added POST endpoint to /api/routes/[id]/addresses
+  - Added "Edit Route" button in route details header
+  - Added "Add Stop" button in addresses section
+  - Added delete button on each address card
+  - All existing features already worked: drag-and-drop reorder, edit address, reassign driver, delete route
 
 ---
 

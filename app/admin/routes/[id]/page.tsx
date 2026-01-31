@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, User, Calendar, MapPin, Edit, CheckCircle, Clock, Circle, Save, X, Trash2, Download, GripVertical, XCircle, Map } from 'lucide-react'
+import { ArrowLeft, User, Calendar, MapPin, Edit, CheckCircle, Clock, Circle, Save, X, Trash2, Download, GripVertical, XCircle, Map, Plus, Settings } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -27,6 +27,8 @@ import { Select } from '@/components/shared/Input'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { RouteMapView } from '@/components/admin/RouteMapView'
+import { RouteEditModal } from '@/components/admin/RouteEditModal'
+import { AddAddressModal } from '@/components/admin/AddAddressModal'
 
 export default function RouteDetailsPage() {
   const params = useParams()
@@ -41,6 +43,8 @@ export default function RouteDetailsPage() {
   const [editForm, setEditForm] = useState<any>({})
   const [isReordering, setIsReordering] = useState(false)
   const [showMapView, setShowMapView] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -83,6 +87,71 @@ export default function RouteDetailsPage() {
   useEffect(() => {
     fetchRoute()
   }, [id])
+
+  const handleSaveRoute = async (routeData: { name: string; date: string; status: string }) => {
+    const response = await fetch(`/api/routes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(routeData),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update route')
+    }
+
+    setRoute(data.data)
+  }
+
+  const handleAddAddress = async (addressData: {
+    streetAddress: string
+    city: string
+    state: string
+    zipCode: string
+    specialInstructions?: string
+  }) => {
+    const response = await fetch(`/api/routes/${id}/addresses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(addressData),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to add address')
+    }
+
+    // Refresh route to get updated addresses
+    fetchRoute()
+  }
+
+  const handleDeleteAddress = async (addressId: number) => {
+    if (!confirm('Are you sure you want to delete this stop? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setUpdating(true)
+      const response = await fetch(`/api/addresses/${addressId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete address')
+      }
+
+      // Refresh route to get updated addresses
+      fetchRoute()
+    } catch (err) {
+      console.error('Error deleting address:', err)
+      alert('Failed to delete address')
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   const handleUpdateDriver = async (newDriverId: string) => {
     try {
@@ -335,6 +404,14 @@ export default function RouteDetailsPage() {
             <Button
               variant="secondary"
               size="sm"
+              onClick={() => setShowEditModal(true)}
+            >
+              <Settings className="w-4 h-4" />
+              Edit Route
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setShowMapView(true)}
             >
               <Map className="w-4 h-4" />
@@ -421,9 +498,19 @@ export default function RouteDetailsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Addresses ({totalStops} stops)</CardTitle>
-            {isReordering && (
-              <span className="text-sm text-gray-500">Saving order...</span>
-            )}
+            <div className="flex items-center gap-2">
+              {isReordering && (
+                <span className="text-sm text-gray-500">Saving order...</span>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowAddAddressModal(true)}
+              >
+                <Plus className="w-4 h-4" />
+                Add Stop
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -447,6 +534,7 @@ export default function RouteDetailsPage() {
                     handleEditAddress={handleEditAddress}
                     handleCancelEdit={handleCancelEdit}
                     handleSaveAddress={handleSaveAddress}
+                    handleDeleteAddress={handleDeleteAddress}
                     updating={updating}
                     getStatusIcon={getStatusIcon}
                   />
@@ -485,6 +573,21 @@ export default function RouteDetailsPage() {
           }
         }}
       />
+
+      {/* Route Edit Modal */}
+      <RouteEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        route={route}
+        onSave={handleSaveRoute}
+      />
+
+      {/* Add Address Modal */}
+      <AddAddressModal
+        isOpen={showAddAddressModal}
+        onClose={() => setShowAddAddressModal(false)}
+        onSave={handleAddAddress}
+      />
     </div>
   )
 }
@@ -498,6 +601,7 @@ interface SortableAddressCardProps {
   handleEditAddress: (address: any) => void
   handleCancelEdit: () => void
   handleSaveAddress: (addressId: number) => void
+  handleDeleteAddress: (addressId: number) => void
   updating: boolean
   getStatusIcon: (status: string) => JSX.Element
 }
@@ -510,6 +614,7 @@ function SortableAddressCard({
   handleEditAddress,
   handleCancelEdit,
   handleSaveAddress,
+  handleDeleteAddress,
   updating,
   getStatusIcon,
 }: SortableAddressCardProps) {
@@ -654,6 +759,14 @@ function SortableAddressCard({
                 title="Edit address"
               >
                 <Edit className="w-4 h-4 text-gray-600" />
+              </button>
+              <button
+                onClick={() => handleDeleteAddress(address.id)}
+                className="p-2 hover:bg-danger-50 rounded-lg transition-colors"
+                title="Delete stop"
+                disabled={updating}
+              >
+                <Trash2 className="w-4 h-4 text-danger-500" />
               </button>
               <div
                 {...attributes}
