@@ -100,6 +100,9 @@ export default function DriversPage() {
 
   const currentUserId = session?.user ? parseInt((session.user as any).id) : undefined
 
+  // Format user ID as "USR-00042"
+  const formatUserId = (id: number) => `USR-${id.toString().padStart(5, '0')}`
+
   // Filter users by role
   const filteredUsers = users.filter(user => {
     if (roleFilter === 'all') return true
@@ -234,6 +237,9 @@ export default function DriversPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
+                        <span className="px-2 py-0.5 text-xs font-mono bg-gray-200 text-gray-600 rounded">
+                          {formatUserId(user.id)}
+                        </span>
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                           user.role === 'admin'
                             ? 'bg-purple-100 text-purple-700'

@@ -38,31 +38,42 @@ Thanks to Vercel for their support of open-source software.
 
 1. **Login**: Access the admin dashboard with your administrator account
 2. **Upload Routes**:
-   - Navigate to the import section
-   - Upload a CSV file with route data
+   - Go to **Routes** > **Import Routes**
+   - Select the event date
+   - Choose route type (Pickup or Bag Delivery)
+   - Upload your CSV file
    - Review and confirm the import
-3. **Manage Routes**:
+3. **Upload Drivers**:
+   - Go to **People** > **Import Volunteers**
+   - Upload your volunteer list CSV
+   - Send password setup emails to new drivers
+4. **Manage Routes**:
    - View all routes in the dashboard
-   - Click on a route to see details
-   - Reassign drivers as needed
-4. **Monitor Progress**: Track delivery progress across all routes
+   - Click a route to see details and edit
+   - Assign/reassign drivers as needed
+   - Enter weight when routes are complete
+5. **Monitor Progress**: Track pickup progress across all routes
+6. **Help**: Access full documentation at **Help** in the sidebar
 
-## CSV File Format
+## CSV File Formats
 
-The route CSV file should include the following columns:
-- Driver Name
-- Driver Email
-- Route ID
-- Address
-- City
-- State
-- Zip Code
-
-Example:
+### Route CSV
+Flexible column naming is supported:
 ```csv
-Driver Name,Driver Email,Route ID,Address,City,State,Zip
-John Smith,john@example.com,Route_A,123 Main St,Chantilly,VA,20151
+Route #,Address,City,State,Zip,Driver Email,Driver Name,Special Instructions
+Route 1,123 Main St,Fairfax,VA,22030,john@email.com,John Smith,Ring doorbell
+Route 1,456 Oak Ave,Fairfax,VA,22030,john@email.com,John Smith,
+Route 2,789 Pine Rd,Chantilly,VA,20151,jane@email.com,Jane Doe,
 ```
+
+### Volunteer CSV
+```csv
+First Name,Last Name,Volunteer Email,Mobile Phone Number,Route
+John,Smith,john@email.com,703-555-1234,1
+Jane,Doe,jane@email.com,703-555-5678,2
+```
+
+**Note:** Driver email is optional - routes can be imported without drivers assigned.
 
 ## System Requirements
 

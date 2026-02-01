@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { List, TruckIcon, User } from 'lucide-react'
+import { List, TruckIcon, User, HelpCircle } from 'lucide-react'
 import RouteProgress from '@/components/driver/RouteProgress'
 import AddressCard from '@/components/driver/AddressCard'
 import { Loading } from '@/components/shared/Loading'
@@ -115,20 +115,70 @@ export default function DriverDashboard() {
 
   if (!routeData) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <div className="max-w-md w-full text-center">
-          <TruckIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            No Active Route
-          </h2>
-          <p className="text-gray-600 mb-4">
-            You don't have an active route assigned yet. Please contact your
-            administrator.
-          </p>
-          <button onClick={fetchRouteData} className="btn btn-primary">
-            Refresh
-          </button>
-        </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TruckIcon className="w-6 h-6 text-primary-600" />
+                <h1 className="text-xl font-bold text-gray-900">ASG Driver</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => router.push('/driver/help')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Help"
+                >
+                  <HelpCircle className="w-5 h-5 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => router.push('/driver/profile')}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <User className="w-5 h-5 text-gray-600" />
+                  <span className="text-sm text-gray-600">
+                    {session?.user?.name || 'Profile'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 p-4 flex items-center justify-center">
+          <div className="max-w-md w-full text-center">
+            <TruckIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              No Active Route
+            </h2>
+            <p className="text-gray-600 mb-6">
+              You don't have an active route assigned yet. Please contact your
+              administrator or check back later.
+            </p>
+            <button onClick={fetchRouteData} className="btn btn-primary mb-4">
+              Refresh
+            </button>
+            <div className="flex justify-center gap-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => router.push('/driver/help')}
+                className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Help
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => router.push('/driver/profile')}
+                className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              >
+                <User className="w-4 h-4" />
+                Profile
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -143,15 +193,24 @@ export default function DriverDashboard() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-900">{route.name}</h1>
-            <button
-              onClick={() => router.push('/driver/profile')}
-              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <User className="w-5 h-5 text-gray-600" />
-              <span className="text-sm text-gray-600">
-                {session?.user?.name || 'Driver'}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/driver/help')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Help"
+              >
+                <HelpCircle className="w-5 h-5 text-gray-600" />
+              </button>
+              <button
+                onClick={() => router.push('/driver/profile')}
+                className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <User className="w-5 h-5 text-gray-600" />
+                <span className="text-sm text-gray-600">
+                  {session?.user?.name || 'Driver'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </header>

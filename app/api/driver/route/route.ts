@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         name: route.name,
         date: route.date,
         status: route.status,
+        routeType: route.routeType,
         driver: route.driver,
         totalStops,
         completedStops,

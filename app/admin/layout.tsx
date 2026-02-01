@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { TruckIcon, LayoutDashboard, Route, Users, FileUp, LogOut, Menu, X, FileText } from 'lucide-react'
+import { TruckIcon, LayoutDashboard, Route, Users, FileUp, LogOut, Menu, X, FileText, History, HelpCircle } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -19,8 +19,10 @@ export default function AdminLayout({
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Routes', href: '/admin/routes', icon: Route },
-    { name: 'Drivers', href: '/admin/drivers', icon: Users },
+    { name: 'People', href: '/admin/people', icon: Users },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
+    { name: 'Change Log', href: '/admin/changelog', icon: History },
+    { name: 'Help', href: '/admin/help', icon: HelpCircle },
   ]
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/')

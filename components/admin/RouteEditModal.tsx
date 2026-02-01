@@ -4,20 +4,21 @@ import { useState, useEffect } from 'react'
 import { Modal, ModalFooter } from '@/components/shared/Modal'
 import { Button } from '@/components/shared/Button'
 import { Input, Select } from '@/components/shared/Input'
-import { Route, Calendar, Flag, AlertTriangle } from 'lucide-react'
+import { Route, Calendar, Flag, AlertTriangle, Package } from 'lucide-react'
 
 interface RouteData {
   id: number
   name: string
   date: string
   status: string
+  routeType?: string
 }
 
 interface RouteEditModalProps {
   isOpen: boolean
   onClose: () => void
   route: RouteData | null
-  onSave: (routeData: { name: string; date: string; status: string }) => Promise<void>
+  onSave: (routeData: { name: string; date: string; status: string; routeType: string }) => Promise<void>
 }
 
 export function RouteEditModal({
@@ -30,6 +31,7 @@ export function RouteEditModal({
     name: '',
     date: '',
     status: '',
+    routeType: 'pickup',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +44,7 @@ export function RouteEditModal({
         name: route.name,
         date: dateStr,
         status: route.status,
+        routeType: route.routeType || 'pickup',
       })
       setError(null)
     }
@@ -99,6 +102,27 @@ export function RouteEditModal({
           />
         </div>
 
+        {/* Route Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Package className="w-4 h-4 inline mr-1" />
+            Route Type
+          </label>
+          <Select
+            value={formData.routeType}
+            onChange={(e) => setFormData({ ...formData, routeType: e.target.value })}
+            options={[
+              { value: 'pickup', label: 'Food Pickup (collect donations)' },
+              { value: 'bag_delivery', label: 'Bag Delivery (deliver bags to new donors)' },
+            ]}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.routeType === 'bag_delivery'
+              ? 'Bag delivery routes skip the weight entry step'
+              : 'Pickup routes require weight entry when completed'}
+          </p>
+        </div>
+
         {/* Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -125,6 +149,7 @@ export function RouteEditModal({
             options={[
               { value: 'pending', label: 'Pending' },
               { value: 'active', label: 'Active' },
+              { value: 'pending_weight', label: 'Pending Weight' },
               { value: 'completed', label: 'Completed' },
             ]}
           />

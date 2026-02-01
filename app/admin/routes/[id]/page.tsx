@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, User, Calendar, MapPin, Edit, CheckCircle, Clock, Circle, Save, X, Trash2, Download, GripVertical, XCircle, Map, Plus, Settings } from 'lucide-react'
+import { ArrowLeft, User, Calendar, MapPin, Edit, CheckCircle, Clock, Circle, Save, X, Trash2, Download, GripVertical, XCircle, Map, Plus, Settings, Scale, Package } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,7 @@ import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { RouteMapView } from '@/components/admin/RouteMapView'
 import { RouteEditModal } from '@/components/admin/RouteEditModal'
 import { AddAddressModal } from '@/components/admin/AddAddressModal'
+import { WeightEntryModal } from '@/components/admin/WeightEntryModal'
 
 export default function RouteDetailsPage() {
   const params = useParams()
@@ -45,6 +46,7 @@ export default function RouteDetailsPage() {
   const [showMapView, setShowMapView] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showAddAddressModal, setShowAddAddressModal] = useState(false)
+  const [showWeightModal, setShowWeightModal] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -88,7 +90,7 @@ export default function RouteDetailsPage() {
     fetchRoute()
   }, [id])
 
-  const handleSaveRoute = async (routeData: { name: string; date: string; status: string }) => {
+  const handleSaveRoute = async (routeData: { name: string; date: string; status: string; routeType: string }) => {
     const response = await fetch(`/api/routes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -194,17 +196,39 @@ export default function RouteDetailsPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const styles = {
+    const styles: Record<string, string> = {
       completed: 'bg-success-100 text-success-700 border-success-200',
       active: 'bg-primary-100 text-primary-700 border-primary-200',
       pending: 'bg-gray-100 text-gray-700 border-gray-200',
+      pending_weight: 'bg-warning-100 text-warning-700 border-warning-200',
+    }
+
+    const labels: Record<string, string> = {
+      pending_weight: 'Pending Weight',
     }
 
     return (
-      <span className={`px-3 py-1 text-sm font-medium rounded-full border ${styles[status as keyof typeof styles] || styles.pending}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`px-3 py-1 text-sm font-medium rounded-full border ${styles[status] || styles.pending}`}>
+        {labels[status] || status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     )
+  }
+
+  const handleEnterWeight = async (weight: number) => {
+    const response = await fetch(`/api/routes/${id}/weight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weight }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to save weight')
+    }
+
+    // Refresh route data
+    fetchRoute()
   }
 
   const handleEditAddress = (address: any) => {
@@ -386,7 +410,15 @@ export default function RouteDetailsPage() {
 
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{route.name}</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900">{route.name}</h1>
+              {route.routeType === 'bag_delivery' && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+                  <Package className="w-3 h-3" />
+                  Bag Delivery
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-gray-600">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -417,6 +449,16 @@ export default function RouteDetailsPage() {
               <Map className="w-4 h-4" />
               View Map
             </Button>
+            {route.status === 'pending_weight' && route.routeType !== 'bag_delivery' && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowWeightModal(true)}
+              >
+                <Scale className="w-4 h-4" />
+                Enter Weight
+              </Button>
+            )}
             {route.status === 'completed' && (
               <Button
                 variant="secondary"
@@ -442,7 +484,7 @@ export default function RouteDetailsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${route.totalWeight ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
         <Card>
           <CardContent className="p-6">
             <p className="text-sm font-medium text-gray-600 mb-1">Progress</p>
@@ -458,6 +500,24 @@ export default function RouteDetailsPage() {
             </p>
           </CardContent>
         </Card>
+
+        {route.totalWeight && (
+          <Card>
+            <CardContent className="p-6">
+              <p className="text-sm font-medium text-gray-600 mb-1">Total Weight</p>
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-success-600" />
+                <p className="text-3xl font-bold text-success-600">{route.totalWeight}</p>
+                <span className="text-lg text-gray-500">lbs</span>
+              </div>
+              {route.weighedAt && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Weighed {new Date(route.weighedAt).toLocaleString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="p-6">
@@ -587,6 +647,15 @@ export default function RouteDetailsPage() {
         isOpen={showAddAddressModal}
         onClose={() => setShowAddAddressModal(false)}
         onSave={handleAddAddress}
+      />
+
+      {/* Weight Entry Modal */}
+      <WeightEntryModal
+        isOpen={showWeightModal}
+        onClose={() => setShowWeightModal(false)}
+        routeId={parseInt(id)}
+        routeName={route.name}
+        onSave={handleEnterWeight}
       />
     </div>
   )

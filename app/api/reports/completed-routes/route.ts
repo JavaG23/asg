@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
       completedStops: route.completedStops,
       completionRate: route.completionRate,
       volunteerHours: route.volunteerHours,
+      totalWeight: route.totalWeight,
+      startedAt: route.startedAt,
+      weighedAt: route.weighedAt,
       archivedAt: route.completedAt,
     }))
 

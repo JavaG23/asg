@@ -139,14 +139,6 @@ function LoginContent() {
               </div>
             )}
 
-            <div className="text-sm text-gray-600">
-              <p className="mb-2">Test Credentials (no password required yet):</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>admin@asg.org (Admin)</li>
-                <li>driver@asg.org (Driver)</li>
-              </ul>
-            </div>
-
             <button
               type="submit"
               disabled={loading}

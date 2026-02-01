@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { logChange } from '@/lib/services/changelog'
 
 /**
  * POST /api/routes/[id]/addresses
@@ -77,6 +78,19 @@ export async function POST(
         sequenceOrder: newSequenceOrder,
         status: 'pending',
       },
+    })
+
+    // Log the creation
+    const userId = parseInt((session.user as any).id)
+    const userName = (session.user as any).name
+    await logChange({
+      userId,
+      userName,
+      action: 'create',
+      entityType: 'address',
+      entityId: newAddress.id,
+      entityName: newAddress.streetAddress,
+      metadata: { routeId, routeName: route.name },
     })
 
     return NextResponse.json({

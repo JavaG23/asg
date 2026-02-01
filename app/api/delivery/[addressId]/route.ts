@@ -99,103 +99,22 @@ export async function PUT(
         (addr) => addr.status === 'completed' || addr.status === 'skipped'
       )
 
-      if (allCompleted && route.status !== 'completed') {
-        // Mark route as completed
+      if (allCompleted && route.status !== 'completed' && route.status !== 'pending_weight') {
+        // Bag delivery routes go directly to completed (no weight needed)
+        // Pickup routes go to pending_weight (admin needs to enter total weight)
+        const newStatus = route.routeType === 'bag_delivery' ? 'completed' : 'pending_weight'
         await prisma.route.update({
           where: { id: route.id },
-          data: { status: 'completed' },
+          data: { status: newStatus },
         })
-
-        // Archive the completed route to permanent history
-        try {
-          // Get complete route data for archiving
-          const completeRoute = await prisma.route.findUnique({
-            where: { id: route.id },
-            include: {
-              driver: { select: { name: true, email: true, phone: true } },
-              addresses: {
-                orderBy: { sequenceOrder: 'asc' },
-                include: {
-                  deliveryLogs: {
-                    include: { driver: { select: { name: true } } },
-                    orderBy: { completedAt: 'desc' },
-                    take: 1,
-                  },
-                },
-              },
-            },
-          })
-
-          if (completeRoute) {
-            // Calculate statistics
-            const totalStops = completeRoute.addresses.length
-            const completedStops = completeRoute.addresses.filter((a) => a.status === 'completed').length
-            const skippedStops = completeRoute.addresses.filter((a) => a.status === 'skipped').length
-            const completionRate = totalStops > 0 ? (completedStops / totalStops) * 100 : 0
-            const volunteerHours = 2 // Estimate
-
-            // Prepare snapshot
-            const routeSnapshot = {
-              route: {
-                id: completeRoute.id,
-                name: completeRoute.name,
-                date: completeRoute.date,
-                status: 'completed',
-                driverId: completeRoute.driverId,
-              },
-              driver: completeRoute.driver,
-              addresses: completeRoute.addresses.map((addr) => ({
-                id: addr.id,
-                sequenceOrder: addr.sequenceOrder,
-                streetAddress: addr.streetAddress,
-                city: addr.city,
-                state: addr.state,
-                zipCode: addr.zipCode,
-                latitude: addr.latitude,
-                longitude: addr.longitude,
-                specialInstructions: addr.specialInstructions,
-                status: addr.status,
-                deliveryLog: addr.deliveryLogs[0] || null,
-              })),
-              stats: { totalStops, completedStops, skippedStops, completionRate, volunteerHours },
-              archivedAt: new Date().toISOString(),
-            }
-
-            // Check if already archived
-            const existingArchive = await prisma.routeArchive.findFirst({
-              where: { routeId: completeRoute.id },
-            })
-
-            // Create archive if doesn't exist
-            if (!existingArchive) {
-              await prisma.routeArchive.create({
-                data: {
-                  routeId: completeRoute.id,
-                  routeName: completeRoute.name,
-                  routeDate: completeRoute.date,
-                  driverName: completeRoute.driver?.name || null,
-                  driverEmail: completeRoute.driver?.email || null,
-                  driverPhone: completeRoute.driver?.phone || null,
-                  totalStops,
-                  completedStops,
-                  skippedStops,
-                  completionRate,
-                  volunteerHours,
-                  routeData: JSON.stringify(routeSnapshot),
-                },
-              })
-              console.log('Route automatically archived:', completeRoute.id)
-            }
-          }
-        } catch (archiveError) {
-          // Log error but don't fail the delivery
-          console.error('Error auto-archiving route:', archiveError)
-        }
       } else if (route.status === 'pending') {
-        // Mark route as active when first delivery is made
+        // Mark route as active when first delivery is made and record start time
         await prisma.route.update({
           where: { id: route.id },
-          data: { status: 'active' },
+          data: {
+            status: 'active',
+            startedAt: new Date(),
+          },
         })
       }
     }

@@ -31,6 +31,7 @@ export default function PickupConfirmation() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nextAddressId, setNextAddressId] = useState<number | null>(null)
+  const [routeType, setRouteType] = useState<string>('pickup')
 
   const addressId = params.addressId as string
 
@@ -64,6 +65,13 @@ export default function PickupConfirmation() {
       if (routeResponse.ok) {
         const routeData = await routeResponse.json()
         console.log('Route data:', routeData)
+
+        if (routeData.route) {
+          // Store route type for the PickupForm
+          if (routeData.route.routeType) {
+            setRouteType(routeData.route.routeType)
+          }
+        }
 
         if (routeData.route && routeData.route.addresses) {
           const addresses = routeData.route.addresses
@@ -224,7 +232,9 @@ export default function PickupConfirmation() {
             >
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
-            <h1 className="text-xl font-bold text-gray-900">Pick-up Stop</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              {routeType === 'bag_delivery' ? 'Delivery Stop' : 'Pick-up Stop'}
+            </h1>
           </div>
         </div>
       </header>
@@ -239,7 +249,7 @@ export default function PickupConfirmation() {
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                Pickup Address
+                {routeType === 'bag_delivery' ? 'Delivery Address' : 'Pickup Address'}
               </h2>
               <p className="text-gray-700 font-medium">
                 {addressData.address.streetAddress}
@@ -294,6 +304,7 @@ export default function PickupConfirmation() {
           address={addressData.address}
           onComplete={handleComplete}
           loading={submitting}
+          routeType={routeType}
         />
       </main>
     </div>

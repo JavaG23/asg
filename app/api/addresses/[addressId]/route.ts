@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { logFieldChanges, logChange } from '@/lib/services/changelog'
 
 /**
  * PUT /api/addresses/[addressId]
@@ -43,6 +44,12 @@ export async function PUT(
       )
     }
 
+    // Get original address for logging
+    const originalAddress = await prisma.address.findUnique({
+      where: { id: addressId },
+      select: { streetAddress: true, city: true, state: true, zipCode: true, specialInstructions: true },
+    })
+
     // Update the address
     const updatedAddress = await prisma.address.update({
       where: { id: addressId },
@@ -54,6 +61,26 @@ export async function PUT(
         specialInstructions: specialInstructions || null,
       },
     })
+
+    // Log changes
+    if (originalAddress) {
+      const userId = parseInt((session.user as any).id)
+      const userName = (session.user as any).name
+      await logFieldChanges({
+        userId,
+        userName,
+        entityType: 'address',
+        entityId: addressId,
+        entityName: updatedAddress.streetAddress,
+        changes: [
+          { field: 'streetAddress', oldValue: originalAddress.streetAddress, newValue: updatedAddress.streetAddress },
+          { field: 'city', oldValue: originalAddress.city, newValue: updatedAddress.city },
+          { field: 'state', oldValue: originalAddress.state, newValue: updatedAddress.state },
+          { field: 'zipCode', oldValue: originalAddress.zipCode, newValue: updatedAddress.zipCode },
+          { field: 'specialInstructions', oldValue: originalAddress.specialInstructions, newValue: updatedAddress.specialInstructions },
+        ],
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -105,10 +132,10 @@ export async function DELETE(
       )
     }
 
-    // Get the address to find its route
+    // Get the address to find its route and for logging
     const address = await prisma.address.findUnique({
       where: { id: addressId },
-      select: { routeId: true, sequenceOrder: true },
+      select: { routeId: true, sequenceOrder: true, streetAddress: true },
     })
 
     if (!address) {
@@ -143,6 +170,18 @@ export async function DELETE(
         })
       }
     }
+
+    // Log the deletion
+    const userId = parseInt((session.user as any).id)
+    const userName = (session.user as any).name
+    await logChange({
+      userId,
+      userName,
+      action: 'delete',
+      entityType: 'address',
+      entityId: addressId,
+      entityName: address.streetAddress,
+    })
 
     return NextResponse.json({
       success: true,

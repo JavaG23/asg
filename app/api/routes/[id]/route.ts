@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import prisma from '@/lib/database/client'
+import { authOptions } from '@/lib/auth/config'
+import { logFieldChanges, logChange } from '@/lib/services/changelog'
 
 export async function GET(
   request: NextRequest,
@@ -80,6 +83,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
     const routeId = parseInt(params.id)
     const body = await request.json()
 
@@ -93,7 +97,13 @@ export async function PUT(
       )
     }
 
-    const { driverId, status, name } = body
+    const { driverId, status, name, routeType } = body
+
+    // Get original route for change logging
+    const originalRoute = await prisma.route.findUnique({
+      where: { id: routeId },
+      select: { name: true, status: true, driverId: true, routeType: true },
+    })
 
     // Update route
     const route = await prisma.route.update({
@@ -102,6 +112,7 @@ export async function PUT(
         ...(driverId !== undefined && { driverId: driverId ? parseInt(driverId) : null }),
         ...(status && { status }),
         ...(name && { name }),
+        ...(routeType && { routeType }),
       },
       include: {
         driver: true,
@@ -112,6 +123,25 @@ export async function PUT(
         },
       },
     })
+
+    // Log changes
+    if (originalRoute && session?.user) {
+      const userId = parseInt((session.user as any).id)
+      const userName = (session.user as any).name
+      await logFieldChanges({
+        userId,
+        userName,
+        entityType: 'route',
+        entityId: routeId,
+        entityName: route.name,
+        changes: [
+          { field: 'name', oldValue: originalRoute.name, newValue: route.name },
+          { field: 'status', oldValue: originalRoute.status, newValue: route.status },
+          { field: 'driverId', oldValue: originalRoute.driverId, newValue: route.driverId },
+          { field: 'routeType', oldValue: originalRoute.routeType, newValue: route.routeType },
+        ],
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -135,6 +165,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
     const routeId = parseInt(params.id)
 
     if (isNaN(routeId)) {
@@ -146,6 +177,12 @@ export async function DELETE(
         { status: 400 }
       )
     }
+
+    // Get route info for logging
+    const routeInfo = await prisma.route.findUnique({
+      where: { id: routeId },
+      select: { name: true },
+    })
 
     // Use a transaction to delete route and all related records
     await prisma.$transaction(async (tx) => {
@@ -176,6 +213,18 @@ export async function DELETE(
         where: { id: routeId },
       })
     })
+
+    // Log the deletion
+    if (session?.user) {
+      await logChange({
+        userId: parseInt((session.user as any).id),
+        userName: (session.user as any).name,
+        action: 'delete',
+        entityType: 'route',
+        entityId: routeId,
+        entityName: routeInfo?.name,
+      })
+    }
 
     return NextResponse.json({
       success: true,

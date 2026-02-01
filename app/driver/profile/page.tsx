@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, User, Mail, Award, Camera, LogOut } from 'lucide-react'
+import { ArrowLeft, User, Mail, Award, Camera, LogOut, Hash, HelpCircle, Key } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
@@ -95,6 +95,10 @@ export default function DriverProfile() {
     router.push('/driver/dashboard')
   }
 
+  // Format user ID as "USR-00042"
+  const formatUserId = (id: number) => `USR-${id.toString().padStart(5, '0')}`
+  const userId = session?.user ? parseInt((session.user as any).id) : null
+
   if (status === 'loading' || loading) {
     return <Loading text="Loading profile..." />
   }
@@ -117,14 +121,23 @@ export default function DriverProfile() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBack}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-700" />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">My Profile</h1>
+            </div>
             <button
-              onClick={handleBack}
+              onClick={() => router.push('/driver/help')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Help"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-700" />
+              <HelpCircle className="w-5 h-5 text-gray-600" />
             </button>
-            <h1 className="text-xl font-bold text-gray-900">My Profile</h1>
           </div>
         </div>
       </header>
@@ -168,6 +181,18 @@ export default function DriverProfile() {
           </h2>
 
           <div className="space-y-3">
+            {userId && (
+              <div className="flex items-center gap-3 p-3 bg-primary-50 rounded-lg">
+                <Hash className="w-5 h-5 text-primary-600" />
+                <div>
+                  <p className="text-xs text-gray-500">Driver ID</p>
+                  <p className="font-mono font-medium text-primary-700">
+                    {formatUserId(userId)}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <User className="w-5 h-5 text-gray-600" />
               <div>
@@ -187,6 +212,17 @@ export default function DriverProfile() {
                 </p>
               </div>
             </div>
+
+            <button
+              onClick={() => router.push('/forgot-password')}
+              className="w-full flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+            >
+              <Key className="w-5 h-5 text-gray-600" />
+              <div>
+                <p className="font-medium text-gray-900">Change Password</p>
+                <p className="text-xs text-gray-500">Update your login password</p>
+              </div>
+            </button>
           </div>
         </div>
 

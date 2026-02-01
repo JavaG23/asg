@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Users, MapPin, CheckCircle, Download, Search, FileText, Calendar, Clock, TrendingUp } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Users, MapPin, CheckCircle, Download, Search, FileText, Calendar, Clock, TrendingUp, BarChart3 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/shared/Card'
 import { Button } from '@/components/shared/Button'
 import { Loading } from '@/components/shared/Loading'
@@ -41,6 +41,9 @@ interface CompletedRoute {
   driverName: string
   totalStops: number
   completedStops: number
+  totalWeight?: number
+  startedAt?: string
+  weighedAt?: string
 }
 
 export default function ReportsPage() {
@@ -54,15 +57,49 @@ export default function ReportsPage() {
   const [completedRoutes, setCompletedRoutes] = useState<CompletedRoute[]>([])
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
+  const [selectedEventDates, setSelectedEventDates] = useState<Set<string>>(new Set())
+  const [showingReport, setShowingReport] = useState(false)
 
-  // ASG Event Dates
-  const eventDates = [
+  // Hardcoded upcoming ASG Event Dates (scheduled events)
+  const scheduledEventDates = [
     { date: '2026-02-07', label: 'February 7, 2026' },
     { date: '2026-04-18', label: 'April 18, 2026' },
     { date: '2026-06-06', label: 'June 6, 2026' },
     { date: '2026-10-03', label: 'October 3, 2026' },
     { date: '2027-08-08', label: 'August 8, 2027' },
   ]
+
+  // Compute all event dates: scheduled dates + any dates with completed routes
+  const eventDates = useMemo(() => {
+    const dateSet = new Set<string>()
+
+    // Add scheduled event dates
+    scheduledEventDates.forEach(e => dateSet.add(e.date))
+
+    // Add dates from completed routes
+    completedRoutes.forEach(route => {
+      const routeDate = new Date(route.date).toISOString().split('T')[0]
+      dateSet.add(routeDate)
+    })
+
+    // Convert to array with labels and sort by date
+    const allDates = Array.from(dateSet).map(date => {
+      const scheduled = scheduledEventDates.find(e => e.date === date)
+      if (scheduled) return scheduled
+
+      // Format label for non-scheduled dates
+      const d = new Date(date + 'T12:00:00')
+      const label = d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+      return { date, label }
+    })
+
+    // Sort by date descending (most recent first)
+    return allDates.sort((a, b) => b.date.localeCompare(a.date))
+  }, [completedRoutes])
 
   // Compute event day stats from completed routes
   const getEventStats = (eventDate: string) => {
@@ -88,13 +125,75 @@ export default function ReportsPage() {
   const getEventStatus = (eventDate: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const event = new Date(eventDate)
+    const event = new Date(eventDate + 'T12:00:00')
     event.setHours(0, 0, 0, 0)
 
     if (event < today) return 'past'
     if (event.getTime() === today.getTime()) return 'today'
     return 'upcoming'
   }
+
+  const toggleEventSelection = (date: string) => {
+    setSelectedEventDates(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(date)) {
+        newSet.delete(date)
+      } else {
+        newSet.add(date)
+      }
+      return newSet
+    })
+  }
+
+  const selectAllEvents = () => {
+    setSelectedEventDates(new Set(eventDates.map(e => e.date)))
+  }
+
+  const deselectAllEvents = () => {
+    setSelectedEventDates(new Set())
+  }
+
+  // Compute aggregated stats for selected event dates
+  const getAggregatedStats = () => {
+    const selectedDates = Array.from(selectedEventDates)
+    const matchingRoutes = completedRoutes.filter(route => {
+      const routeDate = new Date(route.date).toISOString().split('T')[0]
+      return selectedDates.includes(routeDate)
+    })
+
+    const totalStops = matchingRoutes.reduce((sum, r) => sum + r.totalStops, 0)
+    const completedStops = matchingRoutes.reduce((sum, r) => sum + r.completedStops, 0)
+    const uniqueDrivers = new Set(matchingRoutes.map(r => r.driverName))
+
+    // Calculate total weight
+    const totalWeight = matchingRoutes.reduce((sum, r) => sum + (r.totalWeight || 0), 0)
+
+    // Calculate total time (sum of route durations in minutes)
+    let totalTimeMinutes = 0
+    matchingRoutes.forEach(route => {
+      if (route.startedAt && route.weighedAt) {
+        const start = new Date(route.startedAt).getTime()
+        const end = new Date(route.weighedAt).getTime()
+        totalTimeMinutes += (end - start) / (1000 * 60)
+      }
+    })
+
+    return {
+      routeCount: matchingRoutes.length,
+      driverCount: uniqueDrivers.size,
+      driverNames: Array.from(uniqueDrivers),
+      totalStops,
+      completedStops,
+      completionRate: totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0,
+      totalWeight,
+      totalTimeMinutes,
+      routes: matchingRoutes,
+      selectedDates: selectedDates.sort(),
+    }
+  }
+
+  // Format user ID as "USR-00042"
+  const formatUserId = (id: number) => `USR-${id.toString().padStart(5, '0')}`
 
   useEffect(() => {
     fetchReportData()
@@ -322,7 +421,7 @@ export default function ReportsPage() {
           >
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Event Days ({eventDates.length})
+              Event Days ({eventDates.length}){showingReport && ' - Report'}
             </div>
           </button>
           <button
@@ -369,91 +468,376 @@ export default function ReportsPage() {
 
       {/* Tab Content */}
       <div>
-        {activeTab === 'events' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {eventDates.map((event) => {
-              const eventStats = getEventStats(event.date)
-              const status = getEventStatus(event.date)
-              return (
-                <Card key={event.date} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-lg ${
-                          status === 'past' ? 'bg-gray-100' :
-                          status === 'today' ? 'bg-success-100' :
-                          'bg-primary-100'
-                        }`}>
-                          <Calendar className={`w-6 h-6 ${
-                            status === 'past' ? 'text-gray-500' :
-                            status === 'today' ? 'text-success-600' :
-                            'text-primary-600'
-                          }`} />
-                        </div>
-                        <div>
-                          <h3 className={`font-semibold ${
-                            status === 'past' ? 'text-gray-500' : 'text-gray-900'
-                          }`}>
-                            {event.label}
-                          </h3>
-                          <div className="flex items-center gap-1 mt-1">
-                            {status === 'past' ? (
-                              <span className="text-xs text-gray-400 flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" /> Completed
-                              </span>
-                            ) : status === 'today' ? (
-                              <span className="text-xs text-success-600 font-medium flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> Today
-                              </span>
-                            ) : (
-                              <span className="text-xs text-primary-600 flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> Upcoming
-                              </span>
+        {activeTab === 'events' && !showingReport && (
+          <div className="space-y-4">
+            {/* Selection Controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectedEventDates.size === eventDates.length ? deselectAllEvents : selectAllEvents}
+                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  {selectedEventDates.size === eventDates.length ? 'Deselect All' : 'Select All'}
+                </button>
+                {selectedEventDates.size > 0 && (
+                  <span className="text-sm text-gray-500">
+                    ({selectedEventDates.size} selected)
+                  </span>
+                )}
+              </div>
+              {selectedEventDates.size > 0 && (
+                <Button variant="primary" onClick={() => setShowingReport(true)}>
+                  <BarChart3 className="w-4 h-4" />
+                  Run Report ({selectedEventDates.size} {selectedEventDates.size === 1 ? 'day' : 'days'})
+                </Button>
+              )}
+            </div>
+
+            {/* Event Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {eventDates.map((event) => {
+                const eventStats = getEventStats(event.date)
+                const status = getEventStatus(event.date)
+                const isSelected = selectedEventDates.has(event.date)
+                return (
+                  <div
+                    key={event.date}
+                    className={`cursor-pointer rounded-lg transition-all ${
+                      isSelected ? 'ring-2 ring-primary-500' : ''
+                    }`}
+                    onClick={() => toggleEventSelection(event.date)}
+                  >
+                    <Card className={`hover:shadow-lg transition-shadow ${
+                      isSelected ? 'bg-primary-50/50' : ''
+                    }`}>
+                      <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          {/* Checkbox */}
+                          <div
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                              isSelected
+                                ? 'bg-primary-600 border-primary-600'
+                                : 'border-gray-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && (
+                              <CheckCircle className="w-3 h-3 text-white" />
                             )}
+                          </div>
+                          <div className={`p-3 rounded-lg ${
+                            status === 'past' ? 'bg-gray-100' :
+                            status === 'today' ? 'bg-success-100' :
+                            'bg-primary-100'
+                          }`}>
+                            <Calendar className={`w-6 h-6 ${
+                              status === 'past' ? 'text-gray-500' :
+                              status === 'today' ? 'text-success-600' :
+                              'text-primary-600'
+                            }`} />
+                          </div>
+                          <div>
+                            <h3 className={`font-semibold ${
+                              status === 'past' ? 'text-gray-500' : 'text-gray-900'
+                            }`}>
+                              {event.label}
+                            </h3>
+                            <div className="flex items-center gap-1 mt-1">
+                              {status === 'past' ? (
+                                eventStats.routeCount > 0 ? (
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" /> Completed
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> Past
+                                  </span>
+                                )
+                              ) : status === 'today' ? (
+                                <span className="text-xs text-success-600 font-medium flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> Today
+                                </span>
+                              ) : (
+                                <span className="text-xs text-primary-600 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> Upcoming
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-600 text-xs">Routes</p>
-                        <p className="text-xl font-bold text-gray-900">{eventStats.routeCount}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-600 text-xs">Drivers</p>
-                        <p className="text-xl font-bold text-gray-900">{eventStats.driverCount}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-600 text-xs">Total Stops</p>
-                        <p className="text-xl font-bold text-gray-900">{eventStats.totalStops}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-gray-600 text-xs">Completion</p>
-                        <p className={`text-xl font-bold ${
-                          eventStats.completionRate === 100 ? 'text-success-600' :
-                          eventStats.completionRate > 0 ? 'text-primary-600' :
-                          'text-gray-400'
-                        }`}>
-                          {eventStats.completionRate}%
-                        </p>
-                      </div>
-                    </div>
-
-                    {status === 'past' && eventStats.routeCount > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-100">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Stops Completed</span>
-                          <span className="font-semibold text-gray-900">
-                            {eventStats.completedStops} / {eventStats.totalStops}
-                          </span>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">Routes</p>
+                          <p className="text-xl font-bold text-gray-900">{eventStats.routeCount}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">Drivers</p>
+                          <p className="text-xl font-bold text-gray-900">{eventStats.driverCount}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">Total Stops</p>
+                          <p className="text-xl font-bold text-gray-900">{eventStats.totalStops}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">Completion</p>
+                          <p className={`text-xl font-bold ${
+                            eventStats.completionRate === 100 ? 'text-success-600' :
+                            eventStats.completionRate > 0 ? 'text-primary-600' :
+                            'text-gray-400'
+                          }`}>
+                            {eventStats.completionRate}%
+                          </p>
                         </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+
+                      {status === 'past' && eventStats.routeCount > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Stops Completed</span>
+                            <span className="font-semibold text-gray-900">
+                              {eventStats.completedStops} / {eventStats.totalStops}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Empty State */}
+            {eventDates.length === 0 && (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No event days found</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Aggregated Report View */}
+        {activeTab === 'events' && showingReport && (
+          <div className="space-y-6">
+            {/* Report Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Event Report
+                </h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  {selectedEventDates.size === 1
+                    ? `Report for ${eventDates.find(e => selectedEventDates.has(e.date))?.label}`
+                    : `Combined report for ${selectedEventDates.size} event days`
+                  }
+                </p>
+              </div>
+              <Button variant="secondary" onClick={() => setShowingReport(false)}>
+                Back to Event Days
+              </Button>
+            </div>
+
+            {/* Selected Dates */}
+            <div className="flex flex-wrap gap-2">
+              {Array.from(selectedEventDates).sort().map(date => {
+                const event = eventDates.find(e => e.date === date)
+                return (
+                  <span
+                    key={date}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                  >
+                    <Calendar className="w-3 h-3" />
+                    {event?.label || date}
+                  </span>
+                )
+              })}
+            </div>
+
+            {/* Aggregated Stats */}
+            {(() => {
+              const aggStats = getAggregatedStats()
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-primary-100 rounded-lg">
+                            <TrendingUp className="w-6 h-6 text-primary-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Total Routes</p>
+                            <p className="text-2xl font-bold text-gray-900">{aggStats.routeCount}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-success-100 rounded-lg">
+                            <MapPin className="w-6 h-6 text-success-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Total Stops</p>
+                            <p className="text-2xl font-bold text-gray-900">{aggStats.totalStops}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-info-100 rounded-lg">
+                            <FileText className="w-6 h-6 text-info-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Total Weight</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {aggStats.totalWeight > 0 ? `${aggStats.totalWeight.toFixed(1)} lbs` : '—'}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-warning-100 rounded-lg">
+                            <Clock className="w-6 h-6 text-warning-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">Total Time</p>
+                            <p className="text-2xl font-bold text-gray-900">
+                              {aggStats.totalTimeMinutes > 0
+                                ? `${Math.floor(aggStats.totalTimeMinutes / 60)}h ${Math.round(aggStats.totalTimeMinutes % 60)}m`
+                                : '—'}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Detailed Breakdown */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Stops Summary */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Stops Summary</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Completed Stops</span>
+                            <span className="font-semibold text-success-600">{aggStats.completedStops}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Total Stops</span>
+                            <span className="font-semibold text-gray-900">{aggStats.totalStops}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Skipped/Incomplete</span>
+                            <span className="font-semibold text-gray-500">
+                              {aggStats.totalStops - aggStats.completedStops}
+                            </span>
+                          </div>
+                          <div className="pt-4 border-t">
+                            <div className="w-full bg-gray-200 rounded-full h-3">
+                              <div
+                                className="bg-success-500 h-3 rounded-full transition-all"
+                                style={{ width: `${aggStats.completionRate}%` }}
+                              />
+                            </div>
+                            <p className="text-sm text-gray-500 mt-2 text-center">
+                              {aggStats.completionRate}% completion rate
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Drivers */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Participating Drivers ({aggStats.driverCount})</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {aggStats.driverNames.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {aggStats.driverNames.sort().map(name => (
+                              <div
+                                key={name}
+                                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg"
+                              >
+                                <Users className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-900">{name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-center py-4">No drivers participated</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Routes List */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Routes ({aggStats.routeCount})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {aggStats.routes.length > 0 ? (
+                        <div className="space-y-3">
+                          {aggStats.routes.map((route) => {
+                            // Calculate route duration
+                            let durationText = '—'
+                            if (route.startedAt && route.weighedAt) {
+                              const start = new Date(route.startedAt).getTime()
+                              const end = new Date(route.weighedAt).getTime()
+                              const minutes = Math.round((end - start) / (1000 * 60))
+                              const hours = Math.floor(minutes / 60)
+                              const mins = minutes % 60
+                              durationText = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
+                            }
+                            return (
+                              <div key={route.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-1">
+                                    <CheckCircle className="w-4 h-4 text-success-600" />
+                                    <span className="font-semibold text-gray-900">{route.name}</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                                    <span>Driver: {route.driverName}</span>
+                                    <span>Stops: {route.completedStops}/{route.totalStops}</span>
+                                    <span>Weight: {route.totalWeight ? `${route.totalWeight} lbs` : '—'}</span>
+                                    <span>Time: {durationText}</span>
+                                  </div>
+                                </div>
+                                <div className="text-xl font-bold text-success-600">
+                                  {route.totalStops > 0 ? Math.round((route.completedStops / route.totalStops) * 100) : 0}%
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-center py-8">No routes completed on selected dates</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
               )
-            })}
+            })()}
           </div>
         )}
 
@@ -469,7 +853,12 @@ export default function ReportsPage() {
                         <Users className="w-6 h-6 text-primary-600" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{driver.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900">{driver.name}</h3>
+                          <span className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 text-gray-600 rounded">
+                            {formatUserId(driver.id)}
+                          </span>
+                        </div>
                         <p className="text-sm text-gray-600">{driver.email}</p>
                       </div>
                     </div>

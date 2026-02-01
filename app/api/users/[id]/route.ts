@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import prisma from '@/lib/database/client'
 import { authOptions } from '@/lib/auth/config'
+import { logFieldChanges, logChange } from '@/lib/services/changelog'
 
 export async function GET(
   request: NextRequest,
@@ -138,6 +139,12 @@ export async function PUT(
       )
     }
 
+    // Get original user for change logging
+    const originalUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, phone: true, role: true, active: true },
+    })
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -159,6 +166,24 @@ export async function PUT(
         updatedAt: true,
       },
     })
+
+    // Log changes
+    if (originalUser) {
+      await logFieldChanges({
+        userId: currentUserId,
+        userName: (session.user as any).name,
+        entityType: 'user',
+        entityId: userId,
+        entityName: updatedUser.name,
+        changes: [
+          { field: 'name', oldValue: originalUser.name, newValue: updatedUser.name },
+          { field: 'email', oldValue: originalUser.email, newValue: updatedUser.email },
+          { field: 'phone', oldValue: originalUser.phone, newValue: updatedUser.phone },
+          { field: 'role', oldValue: originalUser.role, newValue: updatedUser.role },
+          { field: 'active', oldValue: originalUser.active, newValue: updatedUser.active },
+        ],
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -204,11 +229,30 @@ export async function DELETE(
       )
     }
 
+    // Get user info for logging
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, active: true },
+    })
+
     // Soft delete by setting active to false, or hard delete
     // Using soft delete for safety
     await prisma.user.update({
       where: { id: userId },
       data: { active: false },
+    })
+
+    // Log the deactivation
+    await logChange({
+      userId: currentUserId,
+      userName: (session.user as any).name,
+      action: 'update',
+      entityType: 'user',
+      entityId: userId,
+      entityName: user?.name,
+      field: 'active',
+      oldValue: user?.active,
+      newValue: false,
     })
 
     return NextResponse.json({

@@ -9,6 +9,19 @@ This document tracks development tasks for the ASG App production authentication
 - The database is shared between production and dev
 - Do NOT waste context reviewing files in `DO_NOT_REVIEW/` - contains reference guides, meeting notes, and test CSVs
 
+**Documentation Standards:**
+When implementing features, update the relevant documentation:
+- `README.md` - Brief overview, CSV formats, getting started
+- `docs/admin-guide.md` - Admin workflows, route/driver management, reports
+- `docs/driver-guide.md` - Driver app usage, pickup process, troubleshooting
+- `docs/donor-guide.md` - Donor instructions, donation guidelines
+- `docs/volunteer-guide.md` - Volunteer roles, hour logging
+
+Keep instructions **brief and action-oriented**:
+- Use numbered steps for processes
+- Use tables for comparisons/options
+- Avoid unnecessary explanation - focus on "what to do"
+
 ---
 
 ## Task Status Legend
@@ -157,7 +170,7 @@ This document tracks development tasks for the ASG App production authentication
   - Driver fields are now optional - routes can be created without drivers
   - Shows summary: X routes with drivers, Y routes need assignment
   - Warnings displayed for unknown driver emails
-  - UI updated to show driver assignment status after import
+  - UI updated to show driver aswhats nt status after import
 
 ### 20. Add manual driver assignment for unassigned routes
 - **Status:** [x] Completed (2026-01-30)
@@ -239,6 +252,40 @@ This document tracks development tasks for the ASG App production authentication
 
   Current tabs shift: Event Days (new) | People | Places | Completed Routes
 
+### 38. Show all event days with completed routes and add multi-day report selection
+- **Status:** [x] Completed (2026-01-31)
+- **Blocked by:** None
+- **Description:** Enhance Event Days tab to show historical data and support report generation for selected days.
+
+  **Current Issue:**
+  - Only future dates are shown in Event Days tab
+  - No way to select days for combined reports
+
+  **Changes needed:**
+  1. Show any date that has at least one completed route as an event day
+  2. Include both past and future event dates
+  3. Add checkbox selection on event day cards
+  4. Add "Run Report" button that generates report for selected day(s)
+  5. Single day selection: show report for that day only
+  6. Multiple day selection: show combined/aggregated report across all selected days
+
+  **Report features:**
+  - Total routes completed
+  - Total stops/pickups
+  - Total food weight collected
+  - Driver participation summary
+  - Donor participation summary
+
+  **Implementation:**
+  - Event dates now dynamically computed from completed routes + scheduled dates
+  - Click event cards to select/deselect (checkbox visual)
+  - Select All / Deselect All toggle
+  - "Run Report" button shows aggregated report for selected dates
+  - Report view shows: total routes, unique drivers, total stops, completion rate
+  - Detailed breakdown with stops summary, participating drivers list, routes list
+  - Progress bar showing completion percentage
+  - Back button to return to event selection
+
 ### 27. Display upcoming event dates on admin dashboard
 - **Status:** [x] Completed (2026-01-30)
 - **Blocked by:** None
@@ -258,8 +305,8 @@ This document tracks development tasks for the ASG App production authentication
 ## Route Workflow
 
 ### 14. Add "pending weight" status to route workflow
-- **Status:** [ ] Pending
-- **Blocked by:** None (but requires DB migration - defer until after testing)
+- **Status:** [x] Completed (2026-02-01)
+- **Blocked by:** None
 - **Description:** Update route workflow: when all stops are completed, route status changes to "pending_weight" instead of "completed". Admin must enter the total food weight before route is marked as "completed".
 
   **Changes needed:**
@@ -274,6 +321,17 @@ This document tracks development tasks for the ASG App production authentication
 
   **Updated Route Status Flow:**
   `pending` -> `active` -> `pending_weight` -> `completed`
+
+  **Implementation:**
+  - Schema: Added totalWeight, startedAt, weighedAt fields to Route model
+  - UI: Created WeightEntryModal component for entering weight
+  - UI: Added pending_weight status badge styling (warning/yellow)
+  - UI: Added "Enter Weight" button on route details page for pending_weight routes
+  - UI: Weight display section on completed routes
+  - UI: RouteEditModal includes pending_weight status option
+  - API: Created /api/routes/[id]/weight endpoint for recording weight
+  - Logic: Delivery endpoint now sets status to "pending_weight" when all stops complete
+  - Logic: Route archiving moved to weight entry endpoint (archives when truly completed)
 
 ---
 
@@ -307,8 +365,8 @@ This document tracks development tasks for the ASG App production authentication
 ## Data Models & Tracking
 
 ### 26. Add route timing fields for metrics tracking
-- **Status:** [ ] Pending
-- **Blocked by:** None (but requires DB migration - defer until after testing)
+- **Status:** [x] Completed (2026-01-31) - Schema ready, logic pending
+- **Blocked by:** None
 - **Description:** Add timing fields to Route model for tracking route duration and weigh-in time.
 
   **New fields on Route:**
@@ -324,9 +382,11 @@ This document tracks development tasks for the ASG App production authentication
   - Pickup time = last DeliveryLog.completedAt - startedAt (time on road)
   - Both metrics available for comparison
 
+  **Implementation:** Added startedAt and weighedAt fields to Route model. Logic to populate pending.
+
 ### 22. Add donorId field to Address model for donor tracking
-- **Status:** [ ] Pending
-- **Blocked by:** None (but requires DB migration - defer until after testing)
+- **Status:** [x] Completed (2026-01-31) - Schema ready, UI pending
+- **Blocked by:** None
 - **Description:** Add a donorId field to the Address model to link addresses to donors across events.
 
   **Changes needed:**
@@ -337,6 +397,8 @@ This document tracks development tasks for the ASG App production authentication
   5. Database migration
 
   This enables tracking donor participation across multiple event days.
+
+  **Implementation:** Added Donor model and donorId to Address. CSV import and UI pending.
 
 ---
 
@@ -415,7 +477,7 @@ This document tracks development tasks for the ASG App production authentication
   - Approved changes update the database and should be synced to Bloomerang
 
 ### 32. Add data change log for tracking database modifications
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** None
 - **Description:** Create an audit log system to track all data changes in the database.
 
@@ -439,8 +501,18 @@ This document tracks development tasks for the ASG App production authentication
   - Filter by entity type, date range, status
   - Search by driver/user
 
+  **Implementation:**
+  - Added ChangeLog model to Prisma schema
+  - Created changelog service (lib/services/changelog.ts) with logChange, logFieldChanges, getChangeLogs functions
+  - Created /api/admin/changelog API endpoint for fetching logs
+  - Added logging to user update/delete endpoints (/api/users/[id])
+  - Added logging to route update/delete endpoints (/api/routes/[id])
+  - Created admin UI at /admin/changelog with filtering by entity type and action
+  - Added "Change Log" link to admin sidebar navigation
+  - Pagination support for large log sets
+
 ### 33. Add unique driver ID visible to users
-- **Status:** [ ] Pending
+- **Status:** [x] Completed (2026-01-31)
 - **Blocked by:** None
 - **Description:** Add a human-readable driver ID that persists even if driver changes their email/phone/name.
 
@@ -456,6 +528,12 @@ This document tracks development tasks for the ASG App production authentication
   **Purpose:**
   - Identify drivers even after they change personal info
   - Reference ID for Bloomerang sync
+
+  **Implementation:**
+  - Using existing database ID formatted as "USR-00042" (zero-padded to 5 digits)
+  - Added to: Admin Users list, User Edit Modal, Reports People tab, Driver Profile page
+  - Displayed with monospace font for easy reading
+  - No migration needed - uses existing ID field
 
 ### 25. Add admin UI to edit routes and addresses
 - **Status:** [x] Completed (2026-01-31)
@@ -485,8 +563,8 @@ This document tracks development tasks for the ASG App production authentication
 ## Database Cleanup
 
 ### 21. Remove photoUrl field from DeliveryLog model
-- **Status:** [ ] Pending
-- **Blocked by:** None (but requires DB migration - defer until after testing)
+- **Status:** [x] Completed (2026-01-31)
+- **Blocked by:** None
 - **Description:** Remove the photoUrl field from the DeliveryLog model - this feature is not needed.
 
   **Changes needed:**
@@ -495,13 +573,15 @@ This document tracks development tasks for the ASG App production authentication
   3. Remove any API handling for photo uploads
   4. Database migration to drop the column
 
+  **Implementation:** Removed photoUrl from schema. Verified no data existed before removal.
+
 ---
 
 ## Map Features
 
 ### 29. Add home address fields to User model for drivers
-- **Status:** [ ] Pending
-- **Blocked by:** None (requires DB migration - defer until after testing)
+- **Status:** [x] Completed (2026-01-31) - Schema ready, UI pending
+- **Blocked by:** None
 - **Description:** Add home address fields to the User model so driver locations can be shown on the routes overview map.
 
   **New fields on User:**
@@ -515,6 +595,8 @@ This document tracks development tasks for the ASG App production authentication
   **Usage:**
   - Displayed on routes overview map (#28) to help assign drivers to routes near their homes
   - Can be populated from volunteer CSV upload or manually edited
+
+  **Implementation:** Added all home address fields to User model. UI to edit pending.
 
 ### 28. Add routes overview map feature for admin
 - **Status:** [ ] Pending
@@ -622,11 +704,148 @@ This document tracks development tasks for the ASG App production authentication
   - VolunteerShift (date, startTime, endTime, role, maxVolunteers)
   - VolunteerHourLog (userId, shiftId, clockIn, clockOut, status, approvedBy)
 
+### 37. Unify login flow with role-based routing and role switcher
+- **Status:** [~] Partially Complete (2026-01-31)
+- **Blocked by:** #34 (for multi-role support)
+- **Description:** Replace separate admin/driver login buttons with a unified login experience and role-based routing.
+
+  **Current State:**
+  - Separate buttons for driver and admin login
+  - No support for users with multiple roles
+
+  **Roles:** admin, driver, donor, volunteer
+
+  **Login Flow:**
+  1. **Not logged in:** Show single login screen with email and password fields
+  2. **Logged in, single role:** Auto-redirect to that role's dashboard/interface
+  3. **Logged in, multiple roles:** Show role selector screen to choose interface for session
+
+  **Role Switcher:**
+  - Each role's interface needs a way to switch to a different role (for multi-role users)
+  - Could be a dropdown in header/nav or a dedicated "Switch Role" button
+  - Switching roles changes the current interface without requiring re-login
+
+  **PWA Consideration:**
+  - Users with app installed and credentials saved should be brought directly to their role's interface
+  - Multi-role users see role selector on app launch
+
+  **Implementation considerations:**
+  - Store selected role in session or cookie
+  - Update middleware to handle role-based routing
+  - Create role selector component/page
+  - Add role switcher to each role's layout/header
+  - Remove separate admin/driver login buttons from current login page
+
+  **Partial Implementation (2026-01-31):**
+  - [x] Unified home page with single "Sign In" button (removed separate Driver/Admin buttons)
+  - [x] Logged-in users auto-redirect to their role's dashboard from home page
+  - [x] Login page already had role-based routing after sign-in
+  - [x] Removed test credentials from login page
+  - [ ] Multi-role support (requires schema change to support multiple roles per user)
+  - [ ] Role selector screen for multi-role users
+  - [ ] Role switcher in each interface
+
 ---
 
 ## Additional Tasks
 
 <!-- Add new tasks below this line -->
+
+### 39. Add bag delivery route type for new donor setup
+- **Status:** [x] Completed (2026-02-01)
+- **Blocked by:** None
+- **Description:** Add support for "bag delivery" routes where drivers deliver donation bags to new donors who just signed up. These routes are distinct from food pickup routes.
+
+  **Background:**
+  - Food donors receive bags to collect donations
+  - New donors need bags delivered before they can participate in food pickups
+  - Bag delivery routes need navigation but different confirmation flow
+  - Bag routes should be tracked separately from food pickup routes (no weight needed)
+
+  **Route Type Attribute:**
+  - Add `routeType` field to Route model: `"pickup"` (default) | `"bag_delivery"`
+  - Existing routes are pickup routes by default
+  - Admin can mark a route as bag delivery when creating/editing
+
+  **Bag Delivery Route Differences:**
+  | Aspect | Pickup Route | Bag Delivery Route |
+  |--------|--------------|-------------------|
+  | Purpose | Collect donated food | Deliver bags to new donors |
+  | Stop confirmation | "Food picked up" | "Bag delivered" |
+  | Weight entry | Required (pending_weight) | Not needed |
+  | Status flow | pending → active → pending_weight → completed | pending → active → completed |
+  | Tracking | Food weight metrics | Delivery count metrics |
+  | Reports | Included in food totals | Separate bag delivery reports |
+
+  **Changes needed:**
+  1. **Schema:** Add `routeType String @default("pickup")` to Route model
+  2. **Admin UI - Route Creation:** Add route type selector (Pickup / Bag Delivery)
+  3. **Admin UI - Route Edit:** Allow changing route type (with warning if stops exist)
+  4. **Admin UI - Route List:** Visual indicator for bag delivery routes (different icon/badge)
+  5. **Driver UI - Stop Confirmation:**
+     - Pickup routes: "Confirm Pickup" button, food outside toggle
+     - Bag routes: "Confirm Delivery" button, no food options needed
+  6. **Route Completion Logic:**
+     - Pickup routes: all stops done → pending_weight → weight entry → completed
+     - Bag routes: all stops done → completed (skip weight step)
+  7. **Reports:**
+     - Separate section/tab for bag delivery stats
+     - Count of bags delivered, donors set up, etc.
+  8. **CSV Import:** Option to specify route type when importing routes
+
+  **UI Text Changes for Bag Routes:**
+  - "Pickup" → "Delivery"
+  - "Food picked up" → "Bag delivered"
+  - "Donation location" → "Delivery location"
+  - Hide weight-related fields and buttons
+
+  **Implementation:**
+  - Schema: Added `routeType String @default("pickup")` with index
+  - Admin UI: RouteEditModal has route type dropdown
+  - Admin UI: Route details page shows purple "Bag Delivery" badge
+  - Admin UI: "Enter Weight" button hidden for bag_delivery routes
+  - Driver UI: Stop page adapts title ("Delivery Stop" vs "Pick-up Stop")
+  - Driver UI: PickupForm shows bag delivery confirmation instead of "Was food outside?" question
+  - Driver UI: Button text changes to "Confirm Delivery & Go to Next"
+  - Route completion: bag_delivery routes skip pending_weight, go directly to completed
+  - API: /api/driver/route returns routeType for driver UI
+  - API: /api/routes/[id] PUT handles routeType updates with change logging
+  - API: /api/delivery/[addressId] sets startedAt when route becomes active
+
+### 40. Rename admin/drivers route to admin/people
+- **Status:** [x] Completed (2026-02-01)
+- **Blocked by:** None
+- **Description:** The admin users page is at `/admin/drivers` but was renamed to "People" in the UI. The URL should match.
+
+  **Implementation:**
+  - Renamed `app/admin/drivers/` → `app/admin/people/`
+  - Updated sidebar href in `app/admin/layout.tsx`
+
+### 42. Improve event day selection in route CSV import
+- **Status:** [ ] Pending
+- **Blocked by:** None
+- **Description:** The route CSV import dropdown only shows preset event days. Need ability to add new dates and handle bag routes that aren't tied to events.
+
+  **Changes needed:**
+  1. Add "Add New Date..." option at top of event day dropdown
+  2. Clicking it opens a calendar/date picker modal
+  3. Selected date is added to dropdown and auto-selected
+  4. Add "Bag Route (No Event)" option for bag delivery routes not tied to a specific event day
+  5. New dates should persist (store in database or config)
+
+  **UI Flow:**
+  - Dropdown shows: "Add New Date..." | "Bag Route (No Event)" | [existing event dates]
+  - "Add New Date..." → Calendar modal → Date selected → Added to list
+  - "Bag Route (No Event)" → Sets a flag/null date for non-event routes
+
+### 41. Fix role filtering on admin People page
+- **Status:** [x] Completed (2026-02-01)
+- **Blocked by:** None
+- **Description:** The role filter dropdown on the People page doesn't correctly filter by "Admins" or "Drivers". The "All Users", "Active", and "Inactive" filters work, but role-based filters show incorrect results.
+
+  **Root cause:** The `/api/drivers` endpoint was missing `role: true` in the Prisma select clause, so the role field was never returned to the frontend.
+
+  **Fix:** Added `role: true` to the select in `app/api/drivers/route.ts`
 
 ---
 
@@ -646,7 +865,7 @@ This document tracks development tasks for the ASG App production authentication
 
 ---
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-02-01*
 
 ---
 
@@ -686,3 +905,130 @@ This document tracks development tasks for the ASG App production authentication
 - components/admin/RouteList.tsx - driver assignment dropdown
 - app/api/import/route.ts - event date parameter
 - app/api/import/drivers/route.ts - password status in response
+
+---
+
+## Session Notes (2026-01-31)
+
+### Completed This Session:
+- #11: Password reset flow implemented (forgot-password, reset-password pages, Resend email integration)
+- #18: Admin option to send password setup emails after CSV upload
+- #9: Email notification system for route assignments (opt-in confirmation modal)
+- #10: Admin email opt-out toggle (implemented as explicit confirmation per-action)
+- #24: Admin UI to edit user/driver information (UserEditModal, role changes, password reset)
+- #25: Admin UI to edit routes and addresses (RouteEditModal, AddAddressModal, delete stops)
+- #38: Event Days enhanced - shows all dates with completed routes, multi-day report selection
+- #33: Unique user ID visible (formatted as "USR-00042") in admin, reports, and driver profile
+- #37: Unified login flow (partial) - single Sign In button, auto-redirect logged-in users
+- #32: Data change log for audit trail - ChangeLog model, service, API, and admin UI
+- Sidebar: Changed "Drivers" to "People" and added "Change Log" link
+- **Database Migrations Applied:**
+  - #14: Added totalWeight to Route (pending_weight status)
+  - #21: Removed photoUrl from DeliveryLog
+  - #22: Added Donor model + donorId to Address
+  - #26: Added startedAt, weighedAt to Route
+  - #29: Added home address fields to User
+
+### Key Implementation Details:
+1. **Password System**: Using bcryptjs (not bcrypt) for cross-platform compatibility with Vercel
+2. **Email Service**: Resend with lazy initialization to avoid build-time errors
+3. **Email Opt-In**: Confirmation modal for every route assignment - no accidental emails
+4. **Session Strategy**: Using database sessions via @auth/prisma-adapter for persistent login
+5. **Users Page**: Renamed from "Drivers" to manage all users with role filter
+
+### Files Created This Session:
+- lib/services/email.ts - Resend email service
+- app/forgot-password/page.tsx - Password reset request
+- app/reset-password/page.tsx - Set new password form
+- app/api/auth/forgot-password/route.ts - Request reset endpoint
+- app/api/auth/reset-password/route.ts - Set password endpoint
+- app/api/auth/validate-reset-token/route.ts - Token validation
+- app/api/auth/send-password-setup/route.ts - Bulk send password emails
+- app/api/auth/send-route-assignment/route.ts - Route assignment email
+- components/admin/EmailConfirmationModal.tsx - Opt-in email confirmation
+- components/admin/UserEditModal.tsx - Edit user details
+- components/admin/RouteEditModal.tsx - Edit route details
+- components/admin/AddAddressModal.tsx - Add stops to routes
+- app/api/users/[id]/route.ts - User CRUD operations
+
+### Files Modified This Session:
+- prisma/schema.prisma - passwordHash, reset tokens, Session model
+- lib/auth/config.ts - bcryptjs, PrismaAdapter, password verification
+- app/login/page.tsx - Password field, forgot password link
+- app/admin/drivers/page.tsx - Renamed to Users, role filter, edit modal
+- app/admin/routes/[id]/page.tsx - Edit route, add stop, delete stop buttons
+- components/admin/DriverCSVUpload.tsx - Email selection UI for password setup
+- app/api/addresses/[addressId]/route.ts - Added DELETE method
+- app/api/routes/[id]/addresses/route.ts - POST endpoint for adding addresses
+- app/admin/reports/page.tsx - Dynamic event dates, multi-day selection, aggregated report view, user ID display
+- app/admin/drivers/page.tsx - User ID display in cards
+- app/admin/layout.tsx - Changed "Drivers" to "People" in sidebar
+- components/admin/UserEditModal.tsx - User ID display
+- app/driver/profile/page.tsx - Driver ID display
+- app/page.tsx - Unified single Sign In button, auto-redirect for logged-in users
+- app/login/page.tsx - Removed test credentials text
+- lib/services/changelog.ts - New: Change log service
+- app/api/admin/changelog/route.ts - New: Change log API endpoint
+- app/admin/changelog/page.tsx - New: Change log admin UI
+- prisma/schema.prisma - Added ChangeLog model
+- app/api/users/[id]/route.ts - Added change logging
+- app/api/routes/[id]/route.ts - Added change logging
+
+---
+
+## Session Notes (2026-02-01)
+
+### Completed This Session:
+- #39: Bag delivery route type - full implementation (schema, admin UI, driver UI, completion logic)
+- #40: Renamed `/admin/drivers` → `/admin/people` (URL now matches UI)
+- #41: Fixed role filtering on People page (missing `role` field in API response)
+- Help system: Created documentation and help pages for all user roles
+- Driver UX: Added help/profile access to complete page and "no route" states
+- Driver profile: Added "Change Password" button
+
+### Documentation Created:
+- `docs/admin-guide.md` - Comprehensive admin instructions
+- `docs/driver-guide.md` - Driver app usage guide
+- `docs/donor-guide.md` - Donor participation guide
+- `docs/volunteer-guide.md` - Volunteer roles and hour logging
+
+### Files Created:
+- `app/admin/help/page.tsx` - Admin help page with markdown rendering
+- `app/driver/help/page.tsx` - Driver help page
+- `app/donor/help/page.tsx` - Donor help page
+- `app/volunteer/help/page.tsx` - Volunteer help page
+- `app/api/help/admin/route.ts` - Serves admin guide markdown
+- `app/api/help/driver/route.ts` - Serves driver guide markdown
+- `app/api/help/donor/route.ts` - Serves donor guide markdown
+- `app/api/help/volunteer/route.ts` - Serves volunteer guide markdown
+
+### Files Modified:
+- `app/admin/layout.tsx` - Added Help link to sidebar
+- `app/driver/dashboard/page.tsx` - Added help icon, improved "no route" state
+- `app/driver/complete/page.tsx` - Full header with help/profile, "Check for New Route" button
+- `app/driver/profile/page.tsx` - Added help icon and "Change Password" button
+- `app/driver/route/[addressId]/page.tsx` - Passes routeType to PickupForm
+- `components/driver/PickupForm.tsx` - Bag delivery UI (already done prior)
+- `app/api/drivers/route.ts` - Added `role: true` to fix filtering
+- `README.md` - Updated admin instructions and CSV formats
+
+### Packages Installed:
+- `react-markdown` - For rendering help documentation
+
+### Pending Tasks for Next Session:
+| # | Task | Priority |
+|---|------|----------|
+| 42 | Improve event day selection in CSV import (add new dates, bag route option) | High |
+| 23 | Admin UI to edit donor information | Medium |
+| 28 | Routes overview map for admin | Medium |
+| 30 | Driver self-edit profile | Medium |
+| 31 | Admin notification for driver changes | Low (blocked by #30) |
+| 34 | Implement separate user role interfaces | Low (architectural) |
+| 35 | Donor portal interface | Low (blocked by #34) |
+| 36 | Volunteer hour tracking system | Low (blocked by #34) |
+
+### Notes:
+- Documentation standards added to TODO header - keep docs updated as features are built
+- Help pages use API endpoints that read markdown files from `docs/` folder
+- Driver complete page now has proper navigation instead of being a dead end
+- Bag delivery routes skip the weight entry step and go directly to completed status

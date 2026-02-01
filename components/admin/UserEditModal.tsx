@@ -50,6 +50,9 @@ export function UserEditModal({
 
   const isCurrentUser = currentUserId === formData.id
 
+  // Format user ID as "USR-00042"
+  const formatUserId = (id: number) => `USR-${id.toString().padStart(5, '0')}`
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData) return
@@ -89,6 +92,12 @@ export function UserEditModal({
       showCloseButton={!saving}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* User ID */}
+        <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
+          <span className="text-sm text-gray-600">User ID</span>
+          <span className="font-mono text-sm font-medium text-gray-900">{formatUserId(formData.id)}</span>
+        </div>
+
         {/* Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
