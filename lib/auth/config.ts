@@ -101,7 +101,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 365 * 24 * 60 * 60, // 1 year - effectively indefinite for PWA
+    maxAge: 90 * 24 * 60 * 60, // 90 days
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

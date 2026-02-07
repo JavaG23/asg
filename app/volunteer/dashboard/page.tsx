@@ -184,6 +184,15 @@ export default function VolunteerDashboard() {
               <h1 className="text-xl font-bold text-gray-900">Volunteer Dashboard</h1>
             </div>
             <div className="flex items-center gap-2">
+              {hasMultipleRoles && (
+                <button
+                  onClick={() => router.push('/select-role')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Switch Role"
+                >
+                  <ArrowRightLeft className="w-5 h-5 text-gray-600" />
+                </button>
+              )}
               <button
                 onClick={() => router.push('/volunteer/help')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
 import { logFieldChanges } from '@/lib/services/changelog'
 import { geocodeAddress } from '@/lib/services/geocoding'
 
+async function requireAdmin() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return { error: NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 }) }
+  }
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } })
+  if (!user?.isAdmin) {
+    return { error: NextResponse.json({ success: false, error: 'Not authorized' }, { status: 403 }) }
+  }
+  return { user }
+}
+
 // Get all users with pending changes
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdmin()
+    if ('error' in auth && auth.error) return auth.error
+
     const users = await prisma.user.findMany({
       where: {
         pendingChanges: {
@@ -51,6 +68,9 @@ export async function GET(request: NextRequest) {
 // Approve or reject pending changes
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin()
+    if ('error' in auth && auth.error) return auth.error
+
     const body = await request.json()
     const { userId, action, adminUserId } = body
 

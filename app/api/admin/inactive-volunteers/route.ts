@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const volunteers = await prisma.user.findMany({
       where: {
         isVolunteer: true,
-        isActive: true,
+        active: true,
       },
       include: {
         volunteerHourLogs: {

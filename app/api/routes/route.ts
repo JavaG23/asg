@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+
+async function requireAuth() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return { error: NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 }) }
+  }
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } })
+  if (!user) {
+    return { error: NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 }) }
+  }
+  return { user }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if ('error' in auth && auth.error) return auth.error
+
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const status = searchParams.get('status')
@@ -90,6 +107,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if ('error' in auth && auth.error) return auth.error
+    if (!auth.user?.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Not authorized' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { name, driverId, date, addresses } = body
 

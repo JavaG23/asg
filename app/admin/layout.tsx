@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { TruckIcon, LayoutDashboard, Route, Users,  LogOut, Menu, FileText, History, HelpCircle, Clock } from 'lucide-react'
+import { TruckIcon, LayoutDashboard, Route, Users, LogOut, Menu, FileText, History, HelpCircle, Clock, ArrowRightLeft } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -13,7 +13,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, hasMultipleRoles } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
 //Shifts and Pickup Events temporarily removed from navigation (side Menu)
@@ -88,6 +88,16 @@ export default function AdminLayout({
             <p className="text-sm font-medium text-gray-900">{user?.name || 'Admin'}</p>
             <p className="text-xs text-gray-500">{user?.email}</p>
           </Link>
+          {hasMultipleRoles && (
+            <Link
+              href="/select-role"
+              onClick={closeSidebar}
+              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Switch Role
+            </Link>
+          )}
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

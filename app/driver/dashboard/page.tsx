@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { List, TruckIcon, User, HelpCircle } from 'lucide-react'
+import { List, TruckIcon, User, HelpCircle, ArrowRightLeft } from 'lucide-react'
 import RouteProgress from '@/components/driver/RouteProgress'
 import AddressCard from '@/components/driver/AddressCard'
 import { Loading } from '@/components/shared/Loading'
@@ -43,6 +43,8 @@ interface RouteData {
 export default function DriverDashboard() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const sessionUser = session?.user as any
+  const hasMultipleRoles = [sessionUser?.isAdmin, sessionUser?.isDriver, sessionUser?.isDonor, sessionUser?.isVolunteer].filter(Boolean).length > 1
   const [routeData, setRouteData] = useState<RouteData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,6 +127,15 @@ export default function DriverDashboard() {
                 <h1 className="text-xl font-bold text-gray-900">ASG Driver</h1>
               </div>
               <div className="flex items-center gap-2">
+                {hasMultipleRoles && (
+                  <button
+                    onClick={() => router.push('/select-role')}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Switch Role"
+                  >
+                    <ArrowRightLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                )}
                 <button
                   onClick={() => router.push('/driver/help')}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -194,6 +205,15 @@ export default function DriverDashboard() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-900">{route.name}</h1>
             <div className="flex items-center gap-2">
+              {hasMultipleRoles && (
+                <button
+                  onClick={() => router.push('/select-role')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Switch Role"
+                >
+                  <ArrowRightLeft className="w-5 h-5 text-gray-600" />
+                </button>
+              )}
               <button
                 onClick={() => router.push('/driver/help')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

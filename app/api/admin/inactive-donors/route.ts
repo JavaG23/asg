@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true,
             phone: true,
-            isActive: true,
+            active: true,
           },
         },
       },
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     const inactiveDonors = donors
       .filter((donor) => {
         // Skip inactive users
-        if (donor.user && !donor.user.isActive) return false
+        if (donor.user && !donor.user.active) return false
 
         // If they have no opt-ins, check when they were created
         if (donor.eventOptIns.length === 0) {

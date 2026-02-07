@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+
+async function requireAdmin() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return { error: NextResponse.json({ success: false, error: 'Not authenticated' }, { status: 401 }) }
+  }
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } })
+  if (!user?.isAdmin) {
+    return { error: NextResponse.json({ success: false, error: 'Not authorized' }, { status: 403 }) }
+  }
+  return { user }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdmin()
+    if ('error' in auth && auth.error) return auth.error
+
     const donors = await prisma.donor.findMany({
       include: {
         user: {
@@ -73,6 +90,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin()
+    if ('error' in auth && auth.error) return auth.error
+
     const body = await request.json()
     const { name, email, phone, userId } = body
 

@@ -40,42 +40,44 @@ Keep instructions **brief and action-oriented**:
 ## Incomplete Tasks
 
 ### 37. Unify login flow with role-based routing and role switcher
-- **Status:** [~] Partially Complete (2026-01-31)
+- **Status:** [x] Completed (2026-02-06)
 - **Description:** Replace separate admin/driver login buttons with a unified login experience and role-based routing.
 
-  **Completed:**
+  **All completed:**
   - [x] Unified home page with single "Sign In" button
   - [x] Logged-in users auto-redirect to their role's dashboard
   - [x] Login page role-based routing after sign-in
   - [x] Removed test credentials from login page
   - [x] Multi-role support with boolean role fields
   - [x] Role selector screen for multi-role users (/select-role)
-
-  **Remaining:**
-  - [ ] Role switcher widget in each interface's header/nav (currently users must go to profile to switch)
+  - [x] Role switcher button in all 4 interfaces (admin sidebar, driver/donor/volunteer headers) — only visible for multi-role users
 
 ### 64. Review security suggestions from code review
-- **Status:** [ ] Pending
+- **Status:** [~] In Progress (2026-02-06)
 - **Description:** Review the security and architectural suggestions in DO_NOT_REVIEW/code_review_advice.md and determine which should be implemented.
 
   **Security Issues Identified:**
-  1. **Public API Endpoints (Critical):** /api/donors and /api/import lack auth checks
-     - Status: Needs review - may already be protected by middleware
-  2. **Long JWT Expiration (Critical):** Session maxAge set to 1 year
-     - Status: Needs evaluation - using database sessions may mitigate this
+  1. **Public API Endpoints (Critical):** ~~/api/donors and /api/import lack auth checks~~
+     - Status: **FIXED** (2026-02-06) - Added auth + admin role checks to all 6 unprotected endpoints
+     - Fixed: /api/import, /api/import/drivers, /api/donors, /api/donors/[id], /api/admin/pending-changes, /api/routes
+  2. **Long JWT Expiration (Critical):** ~~Session maxAge set to 1 year~~
+     - Status: **FIXED** (2026-02-06) - Reduced to 30 days
   3. **Client-Side Filtering:** Donors page fetches all data and filters client-side
      - Status: Low priority - acceptable for current scale
   4. **JSON as String:** pendingChanges stored as String instead of Json type
      - Status: Low priority - working as intended
   5. **Cascade Deletes:** onDelete: Cascade on Address model
-     - Status: Needs review - may be intentional behavior
+     - Status: **Reviewed** (2026-02-06) - All cascade deletes are appropriate (Address→Route, Session→User, DonorEventOptIn→Donor/Event, VolunteerSignup→User/Shift, VolunteerHourLog→User)
   6. **Shared Prod/Dev Database:** Known limitation during testing phase
      - Status: Planned - separate environments for production
+  7. ~~**Pre-existing type errors:** app/api/admin/inactive-donors/route.ts has 14 type errors~~
+     - Status: **FIXED** (2026-02-06) - isActive → active field name corrected
 
   **Action Items:**
-  - [ ] Audit all API routes for auth protection
-  - [ ] Evaluate session expiration strategy
-  - [ ] Review cascade delete policies
+  - [x] Audit all API routes for auth protection
+  - [x] Evaluate session expiration strategy (reduced to 30 days)
+  - [x] Review cascade delete policies (all appropriate)
+  - [x] Fix inactive-donors/route.ts type errors
   - [ ] Document security decisions made
 
 ---
