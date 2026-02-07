@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Only admins can access reports
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Get total drivers
+    // Get total drivers (using isDriver boolean flag)
     const totalDrivers = await prisma.user.count({
-      where: { role: 'driver' },
+      where: { isDriver: true },
     })
 
     // Get total unique addresses across all routes

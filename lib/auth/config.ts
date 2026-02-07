@@ -36,12 +36,16 @@ export const authOptions: NextAuthOptions = {
           if (!isValid) return null
         }
 
-        // Return user object
+        // Return user object with role booleans
         return {
           id: user.id.toString(),
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role, // Keep for backward compatibility
+          isAdmin: user.isAdmin,
+          isDriver: user.isDriver,
+          isDonor: user.isDonor,
+          isVolunteer: user.isVolunteer,
         }
       },
     }),
@@ -51,6 +55,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = (user as any).role
+        token.isAdmin = (user as any).isAdmin
+        token.isDriver = (user as any).isDriver
+        token.isDonor = (user as any).isDonor
+        token.isVolunteer = (user as any).isVolunteer
       }
       return token
     },
@@ -60,16 +68,27 @@ export const authOptions: NextAuthOptions = {
         if (token) {
           (session.user as any).id = token.id as string
           (session.user as any).role = token.role as string
+          (session.user as any).isAdmin = token.isAdmin as boolean
+          (session.user as any).isDriver = token.isDriver as boolean
+          (session.user as any).isDonor = token.isDonor as boolean
+          (session.user as any).isVolunteer = token.isVolunteer as boolean
         }
-        // For database strategy, fetch role from database
+        // For database strategy, fetch roles from database
         if (user) {
-          (session.user as any).id = user.id
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sessionUser = session.user as any
+          sessionUser.id = user.id
           const dbUser = await prisma.user.findUnique({
             where: { id: parseInt(user.id) },
-            select: { role: true }
+            select: { role: true, isAdmin: true, isDriver: true, isDonor: true, isVolunteer: true }
           })
           if (dbUser) {
-            (session.user as any).role = dbUser.role
+            const roleStr = String(dbUser.role)
+            sessionUser.role = roleStr
+            sessionUser.isAdmin = Boolean(dbUser.isAdmin)
+            sessionUser.isDriver = Boolean(dbUser.isDriver)
+            sessionUser.isDonor = Boolean(dbUser.isDonor)
+            sessionUser.isVolunteer = Boolean(dbUser.isVolunteer)
           }
         }
       }

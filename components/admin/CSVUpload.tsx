@@ -1,18 +1,22 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Route, Calendar } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, AlertTriangle, Route, Calendar, Plus } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
 import { Card, CardContent } from '@/components/shared/Card'
 
-// ASG Event Dates
-const EVENT_DATES = [
-  { value: '2026-02-07', label: 'February 7, 2026' },
-  { value: '2026-04-18', label: 'April 18, 2026' },
-  { value: '2026-06-06', label: 'June 6, 2026' },
-  { value: '2026-10-03', label: 'October 3, 2026' },
-  { value: '2027-08-08', label: 'August 8, 2027' },
-]
+// Special option for bag routes not tied to events
+const BAG_ROUTE_OPTION = { value: 'bag-route', label: 'Bag Route (No Event Date)' }
+
+// Format a date string to a readable label
+const formatDateLabel = (dateStr: string): string => {
+  const date = new Date(dateStr + 'T12:00:00')
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
 
 interface CSVUploadProps {
   onUploadComplete?: () => void
@@ -25,7 +29,87 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [eventDate, setEventDate] = useState<string>('')
+  const [eventDates, setEventDates] = useState<{ value: string; label: string }[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [newDate, setNewDate] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch pickup events from the database
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch('/api/admin/events')
+        const data = await response.json()
+        if (data.success && data.data) {
+          const dates = data.data.map((event: { id: number; date: string }) => {
+            const dateStr = new Date(event.date).toISOString().split('T')[0]
+            return {
+              value: dateStr,
+              label: formatDateLabel(dateStr),
+            }
+          }).sort((a: { value: string }, b: { value: string }) => a.value.localeCompare(b.value))
+          setEventDates(dates)
+        }
+      } catch (err) {
+        console.error('Error fetching events:', err)
+      } finally {
+        setLoadingEvents(false)
+      }
+    }
+    fetchEvents()
+  }, [])
+
+  // Handle adding a new custom date (creates a PickupEvent)
+  const handleAddDate = async () => {
+    if (!newDate) return
+
+    // Check if date already exists
+    const exists = eventDates.some(d => d.value === newDate)
+    if (exists) {
+      setShowDatePicker(false)
+      setEventDate(newDate)
+      setNewDate('')
+      return
+    }
+
+    // Create a new pickup event in the database
+    try {
+      const response = await fetch('/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: newDate }),
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        // Add the new date to the list
+        const newDateOption = {
+          value: newDate,
+          label: formatDateLabel(newDate),
+        }
+        setEventDates(prev => [...prev, newDateOption].sort((a, b) => a.value.localeCompare(b.value)))
+        setEventDate(newDate)
+      } else {
+        alert(data.error || 'Failed to create event')
+      }
+    } catch (err) {
+      console.error('Error creating event:', err)
+      alert('Failed to create event')
+    }
+
+    setShowDatePicker(false)
+    setNewDate('')
+  }
+
+  // Handle dropdown change
+  const handleDateChange = (value: string) => {
+    if (value === 'add-new') {
+      setShowDatePicker(true)
+    } else {
+      setEventDate(value)
+    }
+  }
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -73,7 +157,15 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('eventDate', eventDate)
+
+      // For bag routes, use today's date and set route type
+      if (eventDate === 'bag-route') {
+        formData.append('eventDate', new Date().toISOString().split('T')[0])
+        formData.append('routeType', 'bag_delivery')
+      } else {
+        formData.append('eventDate', eventDate)
+        formData.append('routeType', 'pickup')
+      }
 
       const response = await fetch('/api/import', {
         method: 'POST',
@@ -185,20 +277,72 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
               </div>
               <select
                 value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
+                onChange={(e) => handleDateChange(e.target.value)}
                 className="w-full px-3 py-2 border border-primary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">-- Select Event Date --</option>
-                {EVENT_DATES.map((date) => (
+                <option value="add-new" className="font-medium text-primary-600">
+                  + Add New Date...
+                </option>
+                <option value={BAG_ROUTE_OPTION.value}>
+                  {BAG_ROUTE_OPTION.label}
+                </option>
+                <option disabled>──────────────</option>
+                {eventDates.map((date) => (
                   <option key={date.value} value={date.value}>
                     {date.label}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-primary-700 mt-2">
-                Routes will be associated with this event date
+                {eventDate === 'bag-route'
+                  ? 'Bag delivery routes are not tied to a specific event date'
+                  : 'Routes will be associated with this event date'}
               </p>
             </div>
+
+            {/* Date Picker Modal */}
+            {showDatePicker && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg max-w-sm w-full p-5 shadow-xl">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Plus className="w-5 h-5 text-primary-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Add New Event Date</h3>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="primary"
+                      onClick={handleAddDate}
+                      disabled={!newDate}
+                      className="flex-1"
+                    >
+                      Add Date
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShowDatePicker(false)
+                        setNewDate('')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {error && !result && (
               <div className="p-3 bg-danger-50 border border-danger-200 rounded-lg">

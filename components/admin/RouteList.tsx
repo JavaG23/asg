@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Route as RouteIcon, User, MapPin, CheckCircle, Clock, Pause, Map, Trash2, Download, UserPlus, AlertTriangle } from 'lucide-react'
+import { Route as RouteIcon, User, MapPin, CheckCircle, Clock, Pause, Map, Trash2, Download, UserPlus, AlertTriangle, Scale } from 'lucide-react'
 import { Card } from '@/components/shared/Card'
 import { Button } from '@/components/shared/Button'
 import { Select } from '@/components/shared/Input'
@@ -171,21 +171,31 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
         return <CheckCircle className="w-5 h-5 text-success-600" />
       case 'active':
         return <Clock className="w-5 h-5 text-primary-600" />
+      case 'pending_weight':
+        return <Scale className="w-5 h-5 text-warning-600" />
       default:
         return <Pause className="w-5 h-5 text-gray-400" />
     }
   }
 
   const getStatusBadge = (status: string) => {
-    const styles = {
+    const styles: Record<string, string> = {
       completed: 'bg-success-100 text-success-700 border-success-200',
       active: 'bg-primary-100 text-primary-700 border-primary-200',
+      pending_weight: 'bg-warning-100 text-warning-700 border-warning-200',
       pending: 'bg-gray-100 text-gray-700 border-gray-200',
     }
 
+    const labels: Record<string, string> = {
+      completed: 'Completed',
+      active: 'Active',
+      pending_weight: 'Pending Weight',
+      pending: 'Pending',
+    }
+
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${styles[status as keyof typeof styles] || styles.pending}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${styles[status] || styles.pending}`}>
+        {labels[status] || status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     )
   }
@@ -378,6 +388,7 @@ export function RouteList({ refreshTrigger }: RouteListProps) {
                 { value: 'unassigned', label: 'Needs Driver' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'active', label: 'Active' },
+                { value: 'pending_weight', label: 'Pending Weight' },
                 { value: 'completed', label: 'Completed' },
               ]}
               className="w-48"

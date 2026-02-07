@@ -20,7 +20,7 @@ export async function PUT(
     }
 
     // Only admins can update addresses
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -34,7 +34,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { streetAddress, city, state, zipCode, specialInstructions } = body
+    const { streetAddress, city, state, zipCode, specialInstructions, donorName, donorEmail, donorPhone } = body
 
     // Validate required fields
     if (!streetAddress || !city || !state || !zipCode) {
@@ -47,7 +47,7 @@ export async function PUT(
     // Get original address for logging
     const originalAddress = await prisma.address.findUnique({
       where: { id: addressId },
-      select: { streetAddress: true, city: true, state: true, zipCode: true, specialInstructions: true },
+      select: { streetAddress: true, city: true, state: true, zipCode: true, specialInstructions: true, donorName: true, donorEmail: true, donorPhone: true },
     })
 
     // Update the address
@@ -59,6 +59,9 @@ export async function PUT(
         state,
         zipCode,
         specialInstructions: specialInstructions || null,
+        donorName: donorName || null,
+        donorEmail: donorEmail || null,
+        donorPhone: donorPhone || null,
       },
     })
 
@@ -78,6 +81,9 @@ export async function PUT(
           { field: 'state', oldValue: originalAddress.state, newValue: updatedAddress.state },
           { field: 'zipCode', oldValue: originalAddress.zipCode, newValue: updatedAddress.zipCode },
           { field: 'specialInstructions', oldValue: originalAddress.specialInstructions, newValue: updatedAddress.specialInstructions },
+          { field: 'donorName', oldValue: originalAddress.donorName, newValue: updatedAddress.donorName },
+          { field: 'donorEmail', oldValue: originalAddress.donorEmail, newValue: updatedAddress.donorEmail },
+          { field: 'donorPhone', oldValue: originalAddress.donorPhone, newValue: updatedAddress.donorPhone },
         ],
       })
     }
@@ -119,7 +125,7 @@ export async function DELETE(
     }
 
     // Only admins can delete addresses
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

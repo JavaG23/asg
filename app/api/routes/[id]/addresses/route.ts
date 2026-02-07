@@ -20,7 +20,7 @@ export async function POST(
     }
 
     // Only admins can add addresses
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -52,7 +52,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { streetAddress, city, state, zipCode, specialInstructions } = body
+    const { streetAddress, city, state, zipCode, specialInstructions, donorName, donorEmail, donorPhone } = body
 
     // Validate required fields
     if (!streetAddress || !city || !state || !zipCode) {
@@ -77,6 +77,9 @@ export async function POST(
         specialInstructions: specialInstructions || null,
         sequenceOrder: newSequenceOrder,
         status: 'pending',
+        donorName: donorName || null,
+        donorEmail: donorEmail || null,
+        donorPhone: donorPhone || null,
       },
     })
 

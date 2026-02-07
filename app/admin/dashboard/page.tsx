@@ -8,6 +8,13 @@ import { DriverCSVUpload } from '@/components/admin/DriverCSVUpload'
 import { RouteList } from '@/components/admin/RouteList'
 import { Loading } from '@/components/shared/Loading'
 
+interface PickupEvent {
+  id: number
+  date: string
+  label: string
+  optInCount: number
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalRoutes: 0,
@@ -19,6 +26,7 @@ export default function AdminDashboard() {
   })
   const [loading, setLoading] = useState(true)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [eventDates, setEventDates] = useState<PickupEvent[]>([])
 
   const fetchStats = async () => {
     try {
@@ -46,31 +54,49 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch('/api/admin/events')
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        const events = data.data.map((event: { id: number; date: string; optInCount: number }) => {
+          const eventDate = new Date(event.date)
+          return {
+            id: event.id,
+            date: event.date,
+            label: eventDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }),
+            optInCount: event.optInCount,
+          }
+        }).sort((a: PickupEvent, b: PickupEvent) => a.date.localeCompare(b.date))
+        setEventDates(events)
+      }
+    } catch (err) {
+      console.error('Error fetching events:', err)
+    }
+  }
+
   useEffect(() => {
     fetchStats()
+    fetchEvents()
   }, [refreshTrigger])
 
   const handleUploadComplete = () => {
     setRefreshTrigger((prev) => prev + 1)
   }
 
-  // ASG Event Dates
-  const eventDates = [
-    { date: new Date('2026-02-07'), label: 'February 7, 2026' },
-    { date: new Date('2026-04-18'), label: 'April 18, 2026' },
-    { date: new Date('2026-06-06'), label: 'June 6, 2026' },
-    { date: new Date('2026-10-03'), label: 'October 3, 2026' },
-    { date: new Date('2027-08-08'), label: 'August 8, 2027' },
-  ]
-
-  const getEventStatus = (eventDate: Date) => {
+  const getEventStatus = (eventDateStr: string) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const event = new Date(eventDate)
-    event.setHours(0, 0, 0, 0)
+    const eventDate = new Date(eventDateStr)
+    eventDate.setHours(0, 0, 0, 0)
 
-    if (event < today) return 'past'
-    if (event.getTime() === today.getTime()) return 'today'
+    if (eventDate < today) return 'past'
+    if (eventDate.getTime() === today.getTime()) return 'today'
     return 'upcoming'
   }
 
@@ -146,55 +172,65 @@ export default function AdminDashboard() {
       {/* Upcoming Event Days */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">ASG Event Days</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {eventDates.map((event) => {
-            const status = getEventStatus(event.date)
-            return (
-              <Card key={event.label}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      status === 'past' ? 'bg-gray-100' :
-                      status === 'today' ? 'bg-success-100' :
-                      'bg-primary-100'
-                    }`}>
-                      <Calendar className={`w-5 h-5 ${
-                        status === 'past' ? 'text-gray-500' :
-                        status === 'today' ? 'text-success-600' :
-                        'text-primary-600'
-                      }`} />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-semibold ${
-                        status === 'past' ? 'text-gray-500' : 'text-gray-900'
+        {eventDates.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {eventDates.map((event) => {
+              const status = getEventStatus(event.date)
+              return (
+                <Card key={event.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        status === 'past' ? 'bg-gray-100' :
+                        status === 'today' ? 'bg-success-100' :
+                        'bg-primary-100'
                       }`}>
-                        {event.label}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {status === 'past' ? (
-                          <>
-                            <CheckCircle className="w-3 h-3 text-gray-400" />
-                            <span className="text-xs text-gray-400">Completed</span>
-                          </>
-                        ) : status === 'today' ? (
-                          <>
-                            <Clock className="w-3 h-3 text-success-600" />
-                            <span className="text-xs text-success-600 font-medium">Today</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-3 h-3 text-primary-500" />
-                            <span className="text-xs text-primary-600">Upcoming</span>
-                          </>
-                        )}
+                        <Calendar className={`w-5 h-5 ${
+                          status === 'past' ? 'text-gray-500' :
+                          status === 'today' ? 'text-success-600' :
+                          'text-primary-600'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className={`text-sm font-semibold ${
+                          status === 'past' ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
+                          {event.label}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          {status === 'past' ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 text-gray-400" />
+                              <span className="text-xs text-gray-400">Completed</span>
+                            </>
+                          ) : status === 'today' ? (
+                            <>
+                              <Clock className="w-3 h-3 text-success-600" />
+                              <span className="text-xs text-success-600 font-medium">Today</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3 text-primary-500" />
+                              <span className="text-xs text-primary-600">Upcoming</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-8 text-center text-gray-500">
+              <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>No event days scheduled</p>
+              <p className="text-sm mt-1">Create events in Pickup Events page</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* CSV Uploads */}

@@ -39,13 +39,28 @@ function LoginContent() {
       if (result?.error) {
         setError('Invalid email or password')
       } else {
-        // Fetch session to get user role
+        // Fetch session to get user roles
         const response = await fetch('/api/auth/session')
         const session = await response.json()
 
-        // Redirect based on role
-        if (session?.user?.role === 'admin') {
-          router.push('/admin/dashboard')
+        if (session?.user) {
+          const user = session.user
+          // Count active roles
+          const roleCount = [user.isAdmin, user.isDriver, user.isDonor, user.isVolunteer]
+            .filter(Boolean).length
+
+          // If multiple roles, show role selector
+          if (roleCount > 1) {
+            router.push('/select-role')
+          } else if (user.isAdmin) {
+            router.push('/admin/dashboard')
+          } else if (user.isDonor) {
+            router.push('/donor/dashboard')
+          } else if (user.isVolunteer) {
+            router.push('/volunteer/dashboard')
+          } else {
+            router.push('/driver/dashboard')
+          }
         } else {
           router.push('/driver/dashboard')
         }

@@ -10,13 +10,23 @@ export async function GET(request: NextRequest) {
 
     const where: any = {}
 
-    // Filter by role - default to drivers only unless includeAll or specific role requested
+    // Filter by role - use boolean fields, fall back to legacy role field
     if (includeAll === 'true') {
       // Include all users
+    } else if (role === 'admin') {
+      where.isAdmin = true
+    } else if (role === 'driver') {
+      where.isDriver = true
+    } else if (role === 'donor') {
+      where.isDonor = true
+    } else if (role === 'volunteer') {
+      where.isVolunteer = true
     } else if (role) {
+      // Legacy support - filter by role string
       where.role = role
     } else {
-      where.role = 'driver'
+      // Default to drivers
+      where.isDriver = true
     }
 
     if (active !== null) {
@@ -31,9 +41,19 @@ export async function GET(request: NextRequest) {
         email: true,
         phone: true,
         role: true,
+        isAdmin: true,
+        isDriver: true,
+        isDonor: true,
+        isVolunteer: true,
         active: true,
         bloomerangId: true,
         passwordHash: true,
+        homeStreet: true,
+        homeCity: true,
+        homeState: true,
+        homeZip: true,
+        homeLatitude: true,
+        homeLongitude: true,
         routes: {
           select: {
             id: true,

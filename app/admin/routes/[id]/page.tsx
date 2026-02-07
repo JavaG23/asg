@@ -239,6 +239,9 @@ export default function RouteDetailsPage() {
       state: address.state,
       zipCode: address.zipCode,
       specialInstructions: address.specialInstructions || '',
+      donorName: address.donorName || '',
+      donorEmail: address.donorEmail || '',
+      donorPhone: address.donorPhone || '',
     })
   }
 
@@ -783,6 +786,48 @@ function SortableAddressCard({
                   rows={2}
                 />
               </div>
+              {/* Donor Contact Info */}
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-xs font-medium text-gray-700 mb-2">Donor Contact Info</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Donor Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.donorName}
+                      onChange={(e) => setEditForm({ ...editForm, donorName: e.target.value })}
+                      className="input text-sm"
+                      placeholder="Business or individual"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Donor Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.donorEmail}
+                      onChange={(e) => setEditForm({ ...editForm, donorEmail: e.target.value })}
+                      className="input text-sm"
+                      placeholder="contact@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Donor Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editForm.donorPhone}
+                      onChange={(e) => setEditForm({ ...editForm, donorPhone: e.target.value })}
+                      className="input text-sm"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant="primary"
@@ -810,6 +855,12 @@ function SortableAddressCard({
               <p className="text-sm text-gray-600">
                 {address.city}, {address.state} {address.zipCode}
               </p>
+              {address.donorName && (
+                <p className="text-sm text-gray-700 mt-1">
+                  <span className="font-medium">Donor:</span> {address.donorName}
+                  {address.donorEmail && <span className="text-gray-500"> • {address.donorEmail}</span>}
+                </p>
+              )}
               {address.specialInstructions && (
                 <p className="text-sm text-primary-600 mt-1">
                   ℹ️ {address.specialInstructions}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Navigation2, MapPin, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Navigation2, MapPin, MessageSquare, Info } from 'lucide-react'
 import PickupForm from '@/components/driver/PickupForm'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
@@ -32,6 +32,7 @@ export default function PickupConfirmation() {
   const [error, setError] = useState<string | null>(null)
   const [nextAddressId, setNextAddressId] = useState<number | null>(null)
   const [routeType, setRouteType] = useState<string>('pickup')
+  const [showNavInfo, setShowNavInfo] = useState(false)
 
   const addressId = params.addressId as string
 
@@ -288,8 +289,45 @@ export default function PickupConfirmation() {
           </button>
 
           <p className="text-xs text-gray-500 text-center mt-2">
-            Opens Google Maps • Click anytime to resume navigation
+            Opens Google Maps • Select <strong>Yes</strong> when asked to exit
+            <button
+              onClick={() => setShowNavInfo(true)}
+              className="ml-1 text-primary-600 hover:text-primary-700 underline"
+            >
+              more info
+            </button>
           </p>
+
+          {/* Navigation Info Modal */}
+          {showNavInfo && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg max-w-sm w-full p-5 shadow-xl">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                    <Info className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">About Navigation</h3>
+                  </div>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                  When you tap "Navigate to This Address", Google Maps will open. When you return to this app, Google may ask if you want to exit navigation.
+                </p>
+                <p className="text-gray-600 text-sm mb-4">
+                  <strong>Select "Yes" to exit navigation.</strong> This is an intentional safety feature by Google to prevent apps from automatically changing your navigation while you're driving.
+                </p>
+                <p className="text-gray-600 text-sm mb-4">
+                  You can tap the Navigate button again anytime to resume directions to the current address.
+                </p>
+                <button
+                  onClick={() => setShowNavInfo(false)}
+                  className="w-full btn btn-primary"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error Message */}

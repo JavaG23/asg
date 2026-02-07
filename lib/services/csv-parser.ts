@@ -13,7 +13,7 @@ function getColumnValue(row: CSVRow, ...possibleNames: string[]): string | undef
   return undefined
 }
 
-export async function parseAndImportCSV(csvContent: string, eventDate?: Date): Promise<ImportResult> {
+export async function parseAndImportCSV(csvContent: string, eventDate?: Date, routeType: string = 'pickup'): Promise<ImportResult> {
   const errors: ImportError[] = []
   const routes: any[] = []
   let routesWithDrivers = 0
@@ -128,6 +128,11 @@ export async function parseAndImportCSV(csvContent: string, eventDate?: Date): P
           const sequenceOrder = getColumnValue(addr, 'sequence_order', 'Stop #', 'Stop', 'Sequence') || '0'
           const specialInstructions = getColumnValue(addr, 'special_instructions', 'Pickup_notes', 'Notes', 'Instructions') || null
 
+          // Get donor contact info (#60)
+          const donorName = getColumnValue(addr, 'donor_name', 'Donor Name', 'Donor', 'Business Name', 'Contact Name') || null
+          const donorEmail = getColumnValue(addr, 'donor_email', 'Donor Email', 'Contact Email', 'Email') || null
+          const donorPhone = getColumnValue(addr, 'donor_phone', 'Donor Phone', 'Contact Phone', 'Phone') || null
+
           // Check if this address has already been geocoded in the database
           const existingAddress = await prisma.address.findFirst({
             where: {
@@ -178,6 +183,10 @@ export async function parseAndImportCSV(csvContent: string, eventDate?: Date): P
             specialInstructions: specialInstructions,
             status: 'pending',
             cached: existingAddress !== null,
+            // Donor contact info (#60)
+            donorName: donorName,
+            donorEmail: donorEmail,
+            donorPhone: donorPhone,
           })
         }
 
@@ -190,6 +199,7 @@ export async function parseAndImportCSV(csvContent: string, eventDate?: Date): P
             driverId: driverId,
             date: eventDate || new Date(),
             status: 'pending',
+            routeType: routeType,
             addresses: {
               create: addressesToCreate,
             },
@@ -262,6 +272,17 @@ interface DriverCSVRow {
   'Mobile Phone Number'?: string
   'Shift Drop Off Time'?: string
   'Scheduled Roles'?: string
+  // Home address fields (#58)
+  'Home Street'?: string
+  'Home Address'?: string
+  'Street Address'?: string
+  'Home City'?: string
+  'City'?: string
+  'Home State'?: string
+  'State'?: string
+  'Home Zip'?: string
+  'Zip'?: string
+  'ZIP'?: string
 }
 
 export interface DriverImportResult {
@@ -313,6 +334,12 @@ export async function parseAndImportDriversCSV(csvContent: string): Promise<Driv
       const phone = row['Mobile Phone Number']
       const dropOffTime = row['Shift Drop Off Time']
 
+      // Home address fields (#58)
+      const homeStreet = row['Home Street'] || row['Home Address'] || row['Street Address'] || null
+      const homeCity = row['Home City'] || row['City'] || null
+      const homeState = row['Home State'] || row['State'] || null
+      const homeZip = row['Home Zip'] || row['Zip'] || row['ZIP'] || null
+
       // Validate required fields
       if (!firstName || !lastName) {
         errors.push({ row: rowNum, field: 'name', message: 'First and Last name are required' })
@@ -330,6 +357,23 @@ export async function parseAndImportDriversCSV(csvContent: string): Promise<Driv
       try {
         const fullName = `${firstName} ${lastName}`.trim()
 
+        // Geocode home address if provided (#58)
+        let homeLatitude: number | null = null
+        let homeLongitude: number | null = null
+
+        if (homeStreet && homeCity && homeState && homeZip) {
+          const geocodeResult = await geocodeAddress(homeStreet, homeCity, homeState, homeZip)
+          if (geocodeResult) {
+            homeLatitude = geocodeResult.latitude
+            homeLongitude = geocodeResult.longitude
+            console.log(`  ✓ Geocoded home address: ${homeStreet} -> ${homeLatitude}, ${homeLongitude}`)
+          } else {
+            console.warn(`  ⚠ Failed to geocode home address: ${homeStreet}`)
+          }
+          // Add delay between geocoding requests
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
         // Check if driver exists
         const existingDriver = await prisma.user.findUnique({
           where: { email: email.toLowerCase() }
@@ -337,13 +381,25 @@ export async function parseAndImportDriversCSV(csvContent: string): Promise<Driv
 
         let driver
         if (existingDriver) {
-          // Update existing driver
+          // Update existing driver (only update home address if provided in CSV)
+          const updateData: any = {
+            name: fullName,
+            phone: phone || existingDriver.phone,
+          }
+
+          // Only update home address if all fields are provided
+          if (homeStreet && homeCity && homeState && homeZip) {
+            updateData.homeStreet = homeStreet
+            updateData.homeCity = homeCity
+            updateData.homeState = homeState
+            updateData.homeZip = homeZip
+            updateData.homeLatitude = homeLatitude
+            updateData.homeLongitude = homeLongitude
+          }
+
           driver = await prisma.user.update({
             where: { email: email.toLowerCase() },
-            data: {
-              name: fullName,
-              phone: phone || existingDriver.phone,
-            }
+            data: updateData,
           })
           updatedCount++
           console.log(`  ↻ Updated driver: ${fullName} (${email})`)
@@ -356,6 +412,12 @@ export async function parseAndImportDriversCSV(csvContent: string): Promise<Driv
               phone: phone || null,
               role: 'driver',
               active: true,
+              homeStreet: homeStreet || null,
+              homeCity: homeCity || null,
+              homeState: homeState || null,
+              homeZip: homeZip || null,
+              homeLatitude,
+              homeLongitude,
             }
           })
           importedCount++

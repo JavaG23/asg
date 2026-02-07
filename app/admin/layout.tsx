@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { TruckIcon, LayoutDashboard, Route, Users, FileUp, LogOut, Menu, X, FileText, History, HelpCircle } from 'lucide-react'
+import { TruckIcon, LayoutDashboard, Route, Users,  LogOut, Menu, FileText, History, HelpCircle, Clock } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -16,10 +16,14 @@ export default function AdminLayout({
   const { user } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
+//Shifts and Pickup Events temporarily removed from navigation (side Menu)
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Routes', href: '/admin/routes', icon: Route },
     { name: 'People', href: '/admin/people', icon: Users },
+  //  { name: 'Shifts', href: '/admin/shifts', icon: UserPlus },
+  //  { name: 'Pickup Events', href: '/admin/events', icon: Calendar },
+    { name: 'Pending Changes', href: '/admin/pending-changes', icon: Clock },
     { name: 'Reports', href: '/admin/reports', icon: FileText },
     { name: 'Change Log', href: '/admin/changelog', icon: History },
     { name: 'Help', href: '/admin/help', icon: HelpCircle },
@@ -76,10 +80,14 @@ export default function AdminLayout({
 
         {/* User Info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <div className="mb-3">
+          <Link
+            href="/admin/profile"
+            onClick={closeSidebar}
+            className="block mb-3 p-2 -mx-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
             <p className="text-sm font-medium text-gray-900">{user?.name || 'Admin'}</p>
             <p className="text-xs text-gray-500">{user?.email}</p>
-          </div>
+          </Link>
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const eventDateStr = formData.get('eventDate') as string | null
+    const routeType = (formData.get('routeType') as string) || 'pickup'
 
     if (!file) {
       return NextResponse.json(
@@ -70,8 +71,8 @@ export async function POST(request: NextRequest) {
     // Read file content
     const content = await file.text()
 
-    // Parse and import CSV with event date
-    const result = await parseAndImportCSV(content, eventDate)
+    // Parse and import CSV with event date and route type
+    const result = await parseAndImportCSV(content, eventDate, routeType)
 
     // If no routes were imported and there are errors, return failure
     if (result.imported === 0 && result.errors.length > 0) {

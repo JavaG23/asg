@@ -15,10 +15,22 @@ export default function HomePage() {
     if (status === 'loading') return
 
     if (status === 'authenticated' && session?.user) {
-      // Redirect logged-in users to their dashboard based on role
-      const role = (session.user as any).role
-      if (role === 'admin') {
+      // Redirect logged-in users based on their roles
+      const user = session.user as any
+
+      // Count active roles
+      const roleCount = [user.isAdmin, user.isDriver, user.isDonor, user.isVolunteer]
+        .filter(Boolean).length
+
+      // If multiple roles, show role selector
+      if (roleCount > 1) {
+        router.replace('/select-role')
+      } else if (user.isAdmin) {
         router.replace('/admin/dashboard')
+      } else if (user.isDonor) {
+        router.replace('/donor/dashboard')
+      } else if (user.isVolunteer) {
+        router.replace('/volunteer/dashboard')
       } else {
         router.replace('/driver/dashboard')
       }

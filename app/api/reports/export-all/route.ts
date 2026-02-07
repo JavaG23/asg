@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Only admins can access reports
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Get all data including archived routes
     const [drivers, addresses, archivedRoutes] = await Promise.all([
       prisma.user.findMany({
-        where: { role: 'driver' },
+        where: { isDriver: true },
         include: {
           _count: {
             select: {

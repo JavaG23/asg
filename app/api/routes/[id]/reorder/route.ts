@@ -19,7 +19,7 @@ export async function PUT(
     }
 
     // Only admins can reorder routes
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

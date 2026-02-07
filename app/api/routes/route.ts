@@ -105,12 +105,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Parse date at noon UTC to avoid timezone day-boundary issues
+    const routeDate = new Date(date + 'T12:00:00Z')
+
     // Create route
     const route = await prisma.route.create({
       data: {
         name,
         driverId: driverId ? parseInt(driverId) : null,
-        date: new Date(date),
+        date: routeDate,
         status: 'pending',
         addresses: addresses
           ? {

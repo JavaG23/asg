@@ -11,7 +11,7 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
 }
 
-// User model for drivers and admins
+// User model for drivers, admins, donors, and volunteers
 model User {
   id                       Int           @id @default(autoincrement())
   bloomerangId             String?       @unique
@@ -21,10 +21,16 @@ model User {
   passwordHash             String?
   passwordResetToken       String?       @unique
   passwordResetTokenExpiry DateTime?
-  role                     String        @default("driver") // "driver" | "admin"
+  role                     String        @default("driver") // DEPRECATED: Use boolean role fields instead
   active                   Boolean       @default(true)
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
+
+  // Multi-role support (#43) - Users can have any combination of roles
+  isAdmin      Boolean @default(false)
+  isDriver     Boolean @default(true)  // Default true for backward compatibility
+  isDonor      Boolean @default(false)
+  isVolunteer  Boolean @default(false)
 
   // Home address fields for map display (#29)
   homeStreet    String?
@@ -34,9 +40,19 @@ model User {
   homeLatitude  Float?
   homeLongitude Float?
 
+  // Pending profile changes awaiting admin approval (#30)
+  pendingChanges String? // JSON string with proposed changes
+
   routes       Route[]
   deliveryLogs DeliveryLog[]
   sessions     Session[]
+  donor        Donor?        // Link to Donor record if user is a donor (#50)
+
+  // Volunteer portal relations (#36)
+  volunteerSignups     VolunteerSignup[] @relation("VolunteerSignups")
+  signupApprovals      VolunteerSignup[] @relation("SignupApprovals")
+  volunteerHourLogs    VolunteerHourLog[]
+  processedOnboardings PendingOnboarding[]
 
   @@index([email])
   @@index([bloomerangId])
@@ -68,15 +84,19 @@ model Route {
 // Donor model for tracking food donors across events (#22)
 model Donor {
   id        Int       @id @default(autoincrement())
+  userId    Int?      @unique // Link to User account if donor has one (#50)
   name      String
   email     String?   @unique
   phone     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  addresses Address[]
+  user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  addresses    Address[]
+  eventOptIns  DonorEventOptIn[] // Pickup event opt-ins (#35)
 
   @@index([email])
+  @@index([userId])
 }
 
 // Address model for pickup/delivery locations
@@ -93,6 +113,10 @@ model Address {
   longitude           Float?
   specialInstructions String?
   status              String        @default("pending") // "pending" | "completed" | "skipped"
+  // Donor contact info for thank-you emails and reports (#60)
+  donorName           String?
+  donorEmail          String?
+  donorPhone          String?
 
   route        Route         @relation(fields: [routeId], references: [id], onDelete: Cascade)
   donor        Donor?        @relation(fields: [donorId], references: [id], onDelete: SetNull)
@@ -178,4 +202,127 @@ model ChangeLog {
   @@index([entityType])
   @@index([entityId])
   @@index([createdAt])
+}
+
+// ============================================
+// FOOD DONATION PORTAL MODELS (#35)
+// ============================================
+
+// Pickup events for donor scheduling
+model PickupEvent {
+  id             Int       @id @default(autoincrement())
+  date           DateTime  @unique
+  description    String?
+  optInDeadline  DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  optIns         DonorEventOptIn[]
+
+  @@index([date])
+}
+
+// Donor opt-in tracking for pickup events
+model DonorEventOptIn {
+  id                 Int       @id @default(autoincrement())
+  donorId            Int
+  eventId            Int
+  status             String    @default("opted_in") // opted_in | cancelled | completed
+  reminderPreference String    @default("24h")      // 24h | 48h | none
+  reminderSentAt     DateTime?
+  optedInAt          DateTime  @default(now())
+  cancelledAt        DateTime?
+  cancelReason       String?
+
+  donor              Donor       @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  event              PickupEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([donorId, eventId])
+  @@index([donorId])
+  @@index([eventId])
+}
+
+// ============================================
+// VOLUNTEER PORTAL MODELS (#36)
+// ============================================
+
+// Volunteer shifts at distribution center
+model VolunteerShift {
+  id          Int       @id @default(autoincrement())
+  date        DateTime
+  startTime   String    // "09:00" format
+  endTime     String    // "12:00" format
+  location    String    @default("Distribution Center")
+  spotsNeeded Int
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  signups     VolunteerSignup[]
+  hourLogs    VolunteerHourLog[]
+
+  @@index([date])
+}
+
+// Volunteer shift sign-ups
+model VolunteerSignup {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  shiftId      Int
+  status       String    @default("pending") // pending | approved | waitlisted | cancelled
+  requestedAt  DateTime  @default(now())
+  approvedAt   DateTime?
+  approvedById Int?
+  cancelledAt  DateTime?
+
+  user         User           @relation("VolunteerSignups", fields: [userId], references: [id], onDelete: Cascade)
+  shift        VolunteerShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  approvedBy   User?          @relation("SignupApprovals", fields: [approvedById], references: [id])
+
+  @@unique([userId, shiftId])
+  @@index([userId])
+  @@index([shiftId])
+  @@index([status])
+}
+
+// Volunteer hour logging with clock in/out
+model VolunteerHourLog {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  shiftId      Int?
+  clockIn      DateTime
+  clockOut     DateTime?
+  totalMinutes Int?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift        VolunteerShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([clockIn])
+}
+
+// ============================================
+// ONBOARDING MODELS (#34, #35, #36)
+// ============================================
+
+// Pending onboarding applications for donors and volunteers
+model PendingOnboarding {
+  id              Int       @id @default(autoincrement())
+  type            String    // "donor" | "volunteer"
+  email           String    @unique
+  applicationData String    // JSON with all application details
+  status          String    @default("pending") // pending | approved | rejected
+  submittedAt     DateTime  @default(now())
+  processedAt     DateTime?
+  processedById   Int?
+
+  processedBy     User?     @relation(fields: [processedById], references: [id])
+
+  @@index([email])
+  @@index([status])
+  @@index([type])
 }

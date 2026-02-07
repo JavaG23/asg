@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Only admins can access reports
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Get all drivers with their route counts
+    // Get all drivers with their route counts (using isDriver boolean flag)
     const drivers = await prisma.user.findMany({
-      where: { role: 'driver' },
+      where: { isDriver: true },
       select: {
         id: true,
         name: true,

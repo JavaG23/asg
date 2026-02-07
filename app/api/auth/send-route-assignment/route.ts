@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   try {
     // Check admin authorization
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || !(session.user as any).isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

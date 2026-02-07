@@ -1,7 +1,7 @@
 {
   "name": "food-delivery-app",
   "version": "1.0.0",
-  "description": "Mobile web app for nonprofit food delivery coordination",
+  "description": "Mobile web app for nonprofit food donation coordination",
   "private": true,
   "scripts": {
     "dev": "next dev",

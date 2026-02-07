@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Users, Mail, Phone, Route, TrendingUp, Shield, Key, Edit2 } from 'lucide-react'
+import { Users, Mail, Phone, Route, TrendingUp, Shield, Key, Edit2, Truck, Heart, Trash2, CheckSquare, Square } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/shared/Card'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { Select } from '@/components/shared/Input'
+import { Button } from '@/components/shared/Button'
 import { UserEditModal } from '@/components/admin/UserEditModal'
 
 interface UserData {
@@ -14,10 +15,18 @@ interface UserData {
   name: string
   email: string
   phone?: string | null
-  role: string
+  role: string // Legacy field for backward compatibility
+  isAdmin: boolean
+  isDriver: boolean
+  isDonor: boolean
+  isVolunteer: boolean
   active: boolean
   hasPassword?: boolean
   bloomerangId?: string | null
+  homeStreet?: string | null
+  homeCity?: string | null
+  homeState?: string | null
+  homeZip?: string | null
   stats?: {
     totalRoutes: number
     completedRoutes: number
@@ -33,6 +42,8 @@ export default function DriversPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const fetchUsers = async () => {
     try {
@@ -98,16 +109,104 @@ export default function DriversPage() {
     alert('Password reset email sent!')
   }
 
+  const handleDeleteUser = async (userId: number, hardDelete: boolean) => {
+    const url = hardDelete
+      ? `/api/users/${userId}?hard=true`
+      : `/api/users/${userId}`
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to delete user')
+    }
+
+    // Refresh the list
+    fetchUsers()
+    alert(result.message)
+  }
+
+  const toggleUserSelection = (userId: number) => {
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
+  }
+
+  const selectAllFiltered = () => {
+    // Select all filtered users except current user
+    const ids = filteredUsers
+      .filter(u => u.id !== currentUserId)
+      .map(u => u.id)
+    setSelectedUserIds(new Set(ids))
+  }
+
+  const deselectAll = () => {
+    setSelectedUserIds(new Set())
+  }
+
+  const handleBulkDelete = async (hardDelete: boolean) => {
+    if (selectedUserIds.size === 0) return
+
+    const confirmMsg = hardDelete
+      ? `Are you sure you want to PERMANENTLY DELETE ${selectedUserIds.size} user(s)? This cannot be undone.`
+      : `Are you sure you want to deactivate ${selectedUserIds.size} user(s)?`
+
+    if (!confirm(confirmMsg)) return
+
+    setBulkDeleting(true)
+    let successCount = 0
+    let errorCount = 0
+
+    for (const userId of selectedUserIds) {
+      try {
+        const url = hardDelete
+          ? `/api/users/${userId}?hard=true`
+          : `/api/users/${userId}`
+
+        const response = await fetch(url, { method: 'DELETE' })
+
+        if (response.ok) {
+          successCount++
+        } else {
+          errorCount++
+        }
+      } catch (err) {
+        errorCount++
+      }
+    }
+
+    setBulkDeleting(false)
+    setSelectedUserIds(new Set())
+    fetchUsers()
+
+    if (errorCount > 0) {
+      alert(`Completed: ${successCount} succeeded, ${errorCount} failed`)
+    } else {
+      alert(`Successfully ${hardDelete ? 'deleted' : 'deactivated'} ${successCount} user(s)`)
+    }
+  }
+
   const currentUserId = session?.user ? parseInt((session.user as any).id) : undefined
 
   // Format user ID as "USR-00042"
   const formatUserId = (id: number) => `USR-${id.toString().padStart(5, '0')}`
 
-  // Filter users by role
+  // Filter users by role (using boolean fields)
   const filteredUsers = users.filter(user => {
     if (roleFilter === 'all') return true
-    if (roleFilter === 'admin') return user.role === 'admin'
-    if (roleFilter === 'driver') return user.role === 'driver'
+    if (roleFilter === 'admin') return user.isAdmin
+    if (roleFilter === 'driver') return user.isDriver
+    if (roleFilter === 'donor') return user.isDonor
+    if (roleFilter === 'volunteer') return user.isVolunteer
     if (roleFilter === 'active') return user.active
     if (roleFilter === 'inactive') return !user.active
     return true
@@ -127,8 +226,10 @@ export default function DriversPage() {
     )
   }
 
-  const adminCount = users.filter(u => u.role === 'admin').length
-  const driverCount = users.filter(u => u.role === 'driver').length
+  const adminCount = users.filter(u => u.isAdmin).length
+  const driverCount = users.filter(u => u.isDriver).length
+  const donorCount = users.filter(u => u.isDonor).length
+  const volunteerCount = users.filter(u => u.isVolunteer).length
 
   return (
     <div className="space-y-6">
@@ -138,19 +239,55 @@ export default function DriversPage() {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600 mt-1">Manage drivers and administrators</p>
         </div>
-        <Select
-          label=""
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          options={[
-            { value: 'all', label: 'All Users' },
-            { value: 'driver', label: 'Drivers Only' },
-            { value: 'admin', label: 'Admins Only' },
-            { value: 'active', label: 'Active Only' },
-            { value: 'inactive', label: 'Inactive Only' },
-          ]}
-          className="w-40"
-        />
+        <div className="flex items-center gap-3">
+          {selectedUserIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {selectedUserIds.size} selected
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleBulkDelete(false)}
+                disabled={bulkDeleting}
+              >
+                Deactivate
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleBulkDelete(true)}
+                disabled={bulkDeleting}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={deselectAll}
+                disabled={bulkDeleting}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+          <Select
+            label=""
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'All Users' },
+              { value: 'driver', label: 'Drivers' },
+              { value: 'admin', label: 'Admins' },
+              { value: 'donor', label: 'Donors' },
+              { value: 'volunteer', label: 'Volunteers' },
+              { value: 'active', label: 'Active Only' },
+              { value: 'inactive', label: 'Inactive Only' },
+            ]}
+            className="w-40"
+          />
+        </div>
       </div>
 
       {/* Stats */}
@@ -214,39 +351,104 @@ export default function DriversPage() {
         </Card>
       </div>
 
+      {/* Selection Controls */}
+      {filteredUsers.length > 0 && (
+        <div className="flex items-center gap-4">
+          <button
+            onClick={selectedUserIds.size === filteredUsers.filter(u => u.id !== currentUserId).length ? deselectAll : selectAllFiltered}
+            className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            {selectedUserIds.size === filteredUsers.filter(u => u.id !== currentUserId).length ? (
+              <>
+                <CheckSquare className="w-4 h-4" />
+                Deselect All
+              </>
+            ) : (
+              <>
+                <Square className="w-4 h-4" />
+                Select All
+              </>
+            )}
+          </button>
+          {selectedUserIds.size > 0 && (
+            <span className="text-sm text-gray-500">
+              ({selectedUserIds.size} of {filteredUsers.length} selected)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Users List */}
       <div className="grid gap-4">
-        {filteredUsers.map((user) => (
-          <Card key={user.id} className="hover:shadow-md transition-shadow">
+        {filteredUsers.map((user) => {
+          const isSelected = selectedUserIds.has(user.id)
+          const isCurrentUser = user.id === currentUserId
+          return (
+          <Card key={user.id} className={`hover:shadow-md transition-shadow ${isSelected ? 'ring-2 ring-primary-500 bg-primary-50/30' : ''}`}>
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
-                <div
-                  className="flex-1 cursor-pointer"
-                  onClick={() => handleEditUser(user)}
-                >
+                {/* Checkbox */}
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!isCurrentUser) toggleUserSelection(user.id)
+                    }}
+                    className={`mt-1 flex-shrink-0 ${isCurrentUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                    disabled={isCurrentUser}
+                    title={isCurrentUser ? "Cannot delete yourself" : "Select for bulk action"}
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5 text-primary-600" />
+                    ) : (
+                      <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => handleEditUser(user)}
+                  >
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      user.role === 'admin' ? 'bg-purple-100' : 'bg-primary-100'
+                      user.isAdmin ? 'bg-purple-100' : 'bg-primary-100'
                     }`}>
-                      {user.role === 'admin' ? (
+                      {user.isAdmin ? (
                         <Shield className="w-6 h-6 text-purple-600" />
                       ) : (
                         <Users className="w-6 h-6 text-primary-600" />
                       )}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
                         <span className="px-2 py-0.5 text-xs font-mono bg-gray-200 text-gray-600 rounded">
                           {formatUserId(user.id)}
                         </span>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                          user.role === 'admin'
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {user.role === 'admin' ? 'Admin' : 'Driver'}
-                        </span>
+                        {/* Role badges */}
+                        {user.isAdmin && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700 flex items-center gap-1">
+                            <Shield className="w-3 h-3" />
+                            Admin
+                          </span>
+                        )}
+                        {user.isDriver && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 text-primary-700 flex items-center gap-1">
+                            <Truck className="w-3 h-3" />
+                            Driver
+                          </span>
+                        )}
+                        {user.isDonor && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 flex items-center gap-1">
+                            <Heart className="w-3 h-3" />
+                            Donor
+                          </span>
+                        )}
+                        {user.isVolunteer && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            Volunteer
+                          </span>
+                        )}
                         {!user.hasPassword && (
                           <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-warning-100 text-warning-700 flex items-center gap-1">
                             <Key className="w-3 h-3" />
@@ -285,6 +487,7 @@ export default function DriversPage() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -296,7 +499,10 @@ export default function DriversPage() {
                     {user.active ? 'Active' : 'Inactive'}
                   </span>
                   <button
-                    onClick={() => handleEditUser(user)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditUser(user)
+                    }}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     title="Edit user"
                   >
@@ -306,7 +512,8 @@ export default function DriversPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          )
+        })}
 
         {filteredUsers.length === 0 && (
           <Card>
@@ -331,6 +538,7 @@ export default function DriversPage() {
         user={selectedUser}
         onSave={handleSaveUser}
         onSendPasswordReset={handleSendPasswordReset}
+        onDelete={handleDeleteUser}
         currentUserId={currentUserId}
       />
     </div>

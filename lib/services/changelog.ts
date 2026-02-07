@@ -1,7 +1,7 @@
 import prisma from '@/lib/database/client'
 
 export type ChangeAction = 'create' | 'update' | 'delete' | 'import'
-export type EntityType = 'user' | 'route' | 'address' | 'deliveryLog'
+export type EntityType = 'user' | 'route' | 'address' | 'deliveryLog' | 'donor'
 
 interface LogChangeParams {
   userId?: number | null

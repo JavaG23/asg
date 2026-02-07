@@ -11,9 +11,12 @@ Welcome to the A Simple Gesture (ASG) App admin guide. This documentation covers
 3. [Uploading Drivers/Volunteers](#uploading-driversvolunteers)
 4. [Managing Routes](#managing-routes)
 5. [Managing Users](#managing-users)
-6. [Event Day Workflow](#event-day-workflow)
-7. [Reports](#reports)
-8. [Troubleshooting](#troubleshooting)
+6. [Managing Pickup Events](#managing-pickup-events)
+7. [Donor Reminders](#donor-reminders)
+8. [Volunteer Hours](#volunteer-hours)
+9. [Event Day Workflow](#event-day-workflow)
+10. [Reports](#reports)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -34,8 +37,11 @@ The dashboard shows:
 Use the sidebar to access:
 - **Dashboard**: Overview and quick actions
 - **Routes**: Manage all routes
-- **People**: Manage drivers and admins
-- **Reports**: View event reports and statistics
+- **People**: Manage drivers, donors, and volunteers
+- **Shifts**: Manage volunteer shifts at the distribution center
+- **Pickup Events**: Schedule and manage donor pickup dates
+- **Pending Changes**: Review and approve profile change requests
+- **Reports**: View event reports, 990 reports, and volunteer hours
 - **Change Log**: Audit trail of all changes
 - **Help**: This documentation
 
@@ -59,13 +65,16 @@ Your CSV should have these columns (flexible naming accepted):
 | Driver Email | Email of assigned driver | No |
 | Driver Name / First Name + Last Name | Driver's name | No |
 | Special Instructions | Notes for the driver | No |
+| Donor Name | Business or individual name | No |
+| Donor Email | Contact email for follow-up | No |
+| Donor Phone | Contact phone number | No |
 
 **Example CSV:**
 ```csv
-Route #,Address,City,State,Zip,Driver Email,Driver Name,Special Instructions
-Route 1,123 Main St,Fairfax,VA,22030,john@email.com,John Smith,Ring doorbell
-Route 1,456 Oak Ave,Fairfax,VA,22030,john@email.com,John Smith,Food in garage
-Route 2,789 Pine Rd,Chantilly,VA,20151,jane@email.com,Jane Doe,
+Route #,Address,City,State,Zip,Driver Email,Driver Name,Special Instructions,Donor Name,Donor Email
+Route 1,123 Main St,Fairfax,VA,22030,john@email.com,John Smith,Ring doorbell,Acme Foods,contact@acme.com
+Route 1,456 Oak Ave,Fairfax,VA,22030,john@email.com,John Smith,Food in garage,Bob Smith,bob@email.com
+Route 2,789 Pine Rd,Chantilly,VA,20151,jane@email.com,Jane Doe,,,
 ```
 
 ### Step 2: Upload the CSV
@@ -112,13 +121,19 @@ Your CSV should have these columns:
 | Volunteer Email | Driver's email address | Yes |
 | Mobile Phone Number | Phone number | No |
 | Route | Assigned route number | No |
+| Home Street | Driver's home street address | No |
+| Home City | Driver's home city | No |
+| Home State | Driver's home state | No |
+| Home Zip | Driver's home ZIP code | No |
 
 **Example CSV:**
 ```csv
-First Name,Last Name,Volunteer Email,Mobile Phone Number,Route
-John,Smith,john@email.com,703-555-1234,1
-Jane,Doe,jane@email.com,703-555-5678,2
+First Name,Last Name,Volunteer Email,Mobile Phone Number,Route,Home Street,Home City,Home State,Home Zip
+John,Smith,john@email.com,703-555-1234,1,100 Driver Lane,Fairfax,VA,22030
+Jane,Doe,jane@email.com,703-555-5678,2,200 Volunteer Ave,Chantilly,VA,20151
 ```
+
+**Note:** Home addresses are used in the Routes Overview Map to help assign drivers to routes near their homes.
 
 ### Step 2: Upload the CSV
 
@@ -220,9 +235,17 @@ When all stops on a pickup route are completed, it moves to **Pending Weight** s
    - Name
    - Email
    - Phone
-   - Role (Driver or Admin)
+   - Roles (can have multiple: Admin, Driver, Donor, Volunteer)
+   - Home address (for driver route assignment map)
    - Active status
 3. Click **Save Changes**
+
+### Multi-Role Users
+
+Users can have multiple roles simultaneously:
+- Check multiple role boxes when editing a user
+- Multi-role users see a role selector after login
+- They can switch between interfaces using "Switch Role" in their profile
 
 ### Sending Password Reset
 
@@ -236,6 +259,125 @@ When all stops on a pickup route are completed, it moves to **Pending Weight** s
 2. Toggle **Active** to off
 3. Click **Save Changes**
 4. User can no longer log in
+
+### Bulk Delete Users
+
+1. In the People page, check the boxes next to users to select
+2. Use **Select All** to select all visible users
+3. Click **Delete Selected**
+4. Choose:
+   - **Deactivate**: Soft delete - users become inactive
+   - **Permanently Delete**: Hard delete - removes from database
+5. Deleted user data is backed up to the Change Log for potential recovery
+
+---
+
+## Managing Pickup Events
+
+Pickup Events are scheduled dates when food donations are collected from donors.
+
+### Creating Pickup Events
+
+1. Go to **Pickup Events** in the sidebar
+2. Click **Create Event**
+3. Enter:
+   - **Pickup Date**: The date of the food collection
+   - **Opt-In Deadline** (optional): Last date donors can opt-in
+   - **Description** (optional): Notes about this pickup date
+4. Click **Create Event**
+
+### Viewing Event Opt-Ins
+
+Each event card shows:
+- The pickup date
+- Number of donors who have opted in
+- Event status (upcoming, today, past)
+
+### Deleting Events
+
+1. Click the delete (trash) icon on an event card
+2. Confirm deletion
+3. **Note**: This will also remove all donor opt-ins for that date
+
+---
+
+## Donor Reminders
+
+The app can automatically send email reminders to donors before their scheduled pickup dates.
+
+### How Reminders Work
+
+1. Donors opt-in to pickup events through their Donor Portal
+2. When opting in, they choose a reminder preference:
+   - **24 hours before**: Reminder sent the day before pickup
+   - **48 hours before**: Reminder sent two days before pickup
+   - **No reminder**: No automatic email sent
+3. A cron job runs daily at 8 AM and sends reminders to eligible donors
+
+### Reminder Status
+
+Reminders are tracked to prevent duplicates:
+- Once a reminder is sent, `reminderSentAt` is recorded
+- Donors won't receive multiple reminders for the same event
+
+### Enabling/Disabling Reminders
+
+**Reminders are DISABLED by default** for safety during testing.
+
+To enable reminders in production:
+
+1. Go to your Vercel project dashboard
+2. Navigate to **Settings** > **Environment Variables**
+3. Add or update: `ENABLE_EMAIL_REMINDERS=true`
+4. Redeploy the application
+
+**Important**: Only enable reminders when:
+- All test/sample data has been removed
+- Real donor information is in the database
+- You are ready for production use
+
+### Manual Reminder Testing
+
+To test the reminder system without sending real emails:
+
+1. Keep `ENABLE_EMAIL_REMINDERS` unset or set to `false`
+2. The cron job will run but skip sending emails
+3. Check the logs to verify the correct donors would be notified
+
+---
+
+## Volunteer Hours
+
+Track volunteer time spent at the distribution center.
+
+### Viewing Volunteer Hours
+
+1. Go to **Reports** in the sidebar
+2. Click the **Volunteer Hours** tab
+3. Optionally filter by date range
+4. Click **Generate Report**
+
+### Report Contents
+
+The Volunteer Hours report shows:
+- **Total Hours**: Sum of all volunteer time
+- **Unique Volunteers**: Number of different people who volunteered
+- **Total Sessions**: Number of clock in/out sessions
+- **Average Hours/Person**: Hours divided by unique volunteers
+
+### Per-Volunteer Breakdown
+
+The table shows each volunteer with:
+- Name and email
+- Total hours worked
+- Number of sessions
+- Role badges (Driver, Volunteer, or both)
+
+### Exporting Data
+
+Two export options are available:
+- **Summary Report**: One row per volunteer with totals
+- **Detailed Report**: Every clock in/out session with timestamps
 
 ---
 
@@ -267,6 +409,8 @@ When all stops on a pickup route are completed, it moves to **Pending Weight** s
 
 ## Reports
 
+*Report tabs have been removed for People, places, Completed Routes, Volunteer Hours and 990 reporting. these reports can be accessed by adding #people, #places, #routes, #990 to admin/reports in the url.*
+
 ### Event Reports
 
 1. Go to **Reports** in the sidebar
@@ -278,9 +422,39 @@ The report shows:
 - Total routes and completion rate
 - Total stops completed
 - Total weight collected
-- Total time (if timing data available)
+- Food outside responses (yes/no counts)
+- Driver notes from pickups
 - List of participating drivers
 - Route-by-route breakdown
+
+Click **Export Report** to download the data as a CSV file.
+
+### 990 Reports (Tax Filing)
+
+Generate reports aligned with 990 tax filing requirements:
+
+1. Go to **Reports** > **990 Reports** tab
+2. Select period:
+   - **Monthly**: Choose month and year
+   - **Annual**: Choose year
+   - **Custom**: Select date range
+3. Click **Generate Report**
+
+Report includes:
+- Unique donor count with contact information
+- In-kind contributions (total food weight)
+- Volunteer count and participation
+- Route completion statistics
+
+**CSV Exports Available:**
+- **Donor List**: Names, emails, addresses, donation dates
+- **In-Kind Contributions**: Dates, routes, weights
+- **Volunteer List**: Names, emails, routes completed
+
+**Email Follow-up:**
+- Select donors with emails using checkboxes
+- Use **Select All with Email** for quick selection
+- Plan for sending thank-you or reminder emails
 
 ### People Reports
 
@@ -327,6 +501,23 @@ View donation location statistics:
 - Only routes in "Pending Weight" status show weight entry
 - Enter weight as a number (no "lbs" suffix needed)
 
+### Reminder Issues
+
+| Issue | Solution |
+|-------|----------|
+| Reminders not sending | Check `ENABLE_EMAIL_REMINDERS=true` is set in environment variables |
+| Duplicate reminders | Check `reminderSentAt` field - reminders only send once per opt-in |
+| Wrong timing | Cron runs at 8 AM UTC - adjust for your timezone |
+| Missing donors | Verify donors have opted in with 24h or 48h preference (not "none") |
+
+### Volunteer Hours Issues
+
+| Issue | Solution |
+|-------|----------|
+| Hours not showing | Volunteer needs to clock in/out via their portal |
+| Missing sessions | Check the date range filter in the report |
+| Wrong totals | Verify clock-out was recorded (look for "Active" status) |
+
 ---
 
 ## Quick Reference
@@ -354,4 +545,4 @@ For technical issues, contact your system administrator or visit the project rep
 
 ---
 
-*Last updated: February 2026*
+*Last updated: February 6, 2026*

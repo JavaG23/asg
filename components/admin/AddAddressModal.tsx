@@ -15,6 +15,9 @@ interface AddAddressModalProps {
     state: string
     zipCode: string
     specialInstructions?: string
+    donorName?: string
+    donorEmail?: string
+    donorPhone?: string
   }) => Promise<void>
 }
 
@@ -29,6 +32,9 @@ export function AddAddressModal({
     state: '',
     zipCode: '',
     specialInstructions: '',
+    donorName: '',
+    donorEmail: '',
+    donorPhone: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +46,9 @@ export function AddAddressModal({
       state: '',
       zipCode: '',
       specialInstructions: '',
+      donorName: '',
+      donorEmail: '',
+      donorPhone: '',
     })
     setError(null)
   }
@@ -163,6 +172,48 @@ export function AddAddressModal({
             rows={2}
             placeholder="e.g., Use side door, gate code 1234"
           />
+        </div>
+
+        {/* Donor Contact Info */}
+        <div className="pt-3 border-t border-gray-200">
+          <p className="text-sm font-medium text-gray-700 mb-3">Donor Contact Info (Optional)</p>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">
+                Donor Name
+              </label>
+              <Input
+                type="text"
+                value={formData.donorName}
+                onChange={(e) => setFormData({ ...formData, donorName: e.target.value })}
+                placeholder="Business or individual name"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Donor Email
+                </label>
+                <Input
+                  type="email"
+                  value={formData.donorEmail}
+                  onChange={(e) => setFormData({ ...formData, donorEmail: e.target.value })}
+                  placeholder="contact@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Donor Phone
+                </label>
+                <Input
+                  type="tel"
+                  value={formData.donorPhone}
+                  onChange={(e) => setFormData({ ...formData, donorPhone: e.target.value })}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Error Message */}

@@ -10,6 +10,9 @@ export interface MapMarker {
   label: string
   title?: string // Optional custom tooltip text
   draggable?: boolean
+  color?: string // Optional custom marker color (hex)
+  displayNumber?: number // Optional custom number to display on marker (instead of array index)
+  displayLabel?: string // Optional custom text to display on marker (overrides displayNumber)
 }
 
 interface GoogleMapProps {
@@ -133,15 +136,22 @@ export function GoogleMap({
     // Add new markers
     markers.forEach((marker, index) => {
       const isSelected = selectedMarkerId === marker.id
+      // Use displayLabel if provided, otherwise use displayNumber or array index + 1
+      const displayText = marker.displayLabel !== undefined
+        ? marker.displayLabel
+        : (marker.displayNumber !== undefined ? marker.displayNumber.toString() : (index + 1).toString())
+      // Use custom color if provided, otherwise use default blue
+      const markerColor = marker.color || '#2563eb'
 
       const mapMarker = new google.maps.Marker({
         map: mapInstanceRef.current,
         position: { lat: marker.lat, lng: marker.lng },
         title: marker.title || marker.label, // Use custom title if provided, otherwise use label
         label: {
-          text: (index + 1).toString(),
+          text: displayText,
           color: 'white',
           fontWeight: 'bold',
+          fontSize: '12px',
         },
         draggable: marker.draggable || false,
         animation: isSelected ? google.maps.Animation.BOUNCE : google.maps.Animation.DROP,
@@ -152,7 +162,14 @@ export function GoogleMap({
           fillOpacity: 1,
           strokeColor: '#ffffff',
           strokeWeight: 3,
-        } : undefined,
+        } : {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: markerColor,
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
       })
 
       // Add click listener

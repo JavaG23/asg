@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import prisma from '@/lib/database/client'
 import { authOptions } from '@/lib/auth/config'
 import { logFieldChanges, logChange } from '@/lib/services/changelog'
+import { geocodeAddress } from '@/lib/services/geocoding'
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +11,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || !(session.user as any).isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -33,11 +34,21 @@ export async function GET(
         email: true,
         phone: true,
         role: true,
+        isAdmin: true,
+        isDriver: true,
+        isDonor: true,
+        isVolunteer: true,
         active: true,
         bloomerangId: true,
         createdAt: true,
         updatedAt: true,
         passwordHash: true,
+        homeStreet: true,
+        homeCity: true,
+        homeState: true,
+        homeZip: true,
+        homeLatitude: true,
+        homeLongitude: true,
       },
     })
 
@@ -73,7 +84,7 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || !(session.user as any).isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -89,7 +100,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, email, phone, role, active } = body
+    const { name, email, phone, role, isAdmin, isDriver, isDonor, isVolunteer, active, homeStreet, homeCity, homeState, homeZip } = body
 
     // Validate required fields
     if (!name || !email) {
@@ -99,10 +110,10 @@ export async function PUT(
       )
     }
 
-    // Validate role
-    if (role && !['driver', 'admin'].includes(role)) {
+    // Validate at least one role is selected
+    if (isAdmin === false && isDriver === false && isDonor === false && isVolunteer === false) {
       return NextResponse.json(
-        { success: false, error: 'Invalid role. Must be "driver" or "admin"' },
+        { success: false, error: 'User must have at least one role' },
         { status: 400 }
       )
     }
@@ -132,7 +143,7 @@ export async function PUT(
     }
 
     // Prevent removing your own admin role
-    if (userId === currentUserId && role === 'driver') {
+    if (userId === currentUserId && isAdmin === false) {
       return NextResponse.json(
         { success: false, error: 'You cannot remove your own admin privileges' },
         { status: 400 }
@@ -142,8 +153,35 @@ export async function PUT(
     // Get original user for change logging
     const originalUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true, phone: true, role: true, active: true },
+      select: { name: true, email: true, phone: true, role: true, isAdmin: true, isDriver: true, isDonor: true, isVolunteer: true, active: true, homeStreet: true, homeCity: true, homeState: true, homeZip: true, homeLatitude: true, homeLongitude: true },
     })
+
+    // Determine the primary role for backward compatibility
+    const primaryRole = isAdmin ? 'admin' : 'driver'
+
+    // Geocode home address if provided
+    let homeLatitude: number | null = originalUser?.homeLatitude ?? null
+    let homeLongitude: number | null = originalUser?.homeLongitude ?? null
+
+    const hasHomeAddress = homeStreet && homeCity && homeState && homeZip
+    const homeAddressChanged = hasHomeAddress && (
+      homeStreet !== originalUser?.homeStreet ||
+      homeCity !== originalUser?.homeCity ||
+      homeState !== originalUser?.homeState ||
+      homeZip !== originalUser?.homeZip
+    )
+
+    if (homeAddressChanged) {
+      const geocodeResult = await geocodeAddress(homeStreet, homeCity, homeState, homeZip)
+      if (geocodeResult) {
+        homeLatitude = geocodeResult.latitude
+        homeLongitude = geocodeResult.longitude
+      }
+    } else if (!hasHomeAddress) {
+      // Clear coordinates if address is cleared
+      homeLatitude = null
+      homeLongitude = null
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -151,8 +189,18 @@ export async function PUT(
         name,
         email: email.toLowerCase(),
         phone: phone || null,
-        role: role || undefined,
+        role: primaryRole, // Keep role field in sync for backward compatibility
+        isAdmin: isAdmin !== undefined ? isAdmin : undefined,
+        isDriver: isDriver !== undefined ? isDriver : undefined,
+        isDonor: isDonor !== undefined ? isDonor : undefined,
+        isVolunteer: isVolunteer !== undefined ? isVolunteer : undefined,
         active: active !== undefined ? active : undefined,
+        homeStreet: homeStreet || null,
+        homeCity: homeCity || null,
+        homeState: homeState || null,
+        homeZip: homeZip || null,
+        homeLatitude,
+        homeLongitude,
       },
       select: {
         id: true,
@@ -160,10 +208,20 @@ export async function PUT(
         email: true,
         phone: true,
         role: true,
+        isAdmin: true,
+        isDriver: true,
+        isDonor: true,
+        isVolunteer: true,
         active: true,
         bloomerangId: true,
         createdAt: true,
         updatedAt: true,
+        homeStreet: true,
+        homeCity: true,
+        homeState: true,
+        homeZip: true,
+        homeLatitude: true,
+        homeLongitude: true,
       },
     })
 
@@ -179,8 +237,15 @@ export async function PUT(
           { field: 'name', oldValue: originalUser.name, newValue: updatedUser.name },
           { field: 'email', oldValue: originalUser.email, newValue: updatedUser.email },
           { field: 'phone', oldValue: originalUser.phone, newValue: updatedUser.phone },
-          { field: 'role', oldValue: originalUser.role, newValue: updatedUser.role },
+          { field: 'isAdmin', oldValue: originalUser.isAdmin, newValue: updatedUser.isAdmin },
+          { field: 'isDriver', oldValue: originalUser.isDriver, newValue: updatedUser.isDriver },
+          { field: 'isDonor', oldValue: originalUser.isDonor, newValue: updatedUser.isDonor },
+          { field: 'isVolunteer', oldValue: originalUser.isVolunteer, newValue: updatedUser.isVolunteer },
           { field: 'active', oldValue: originalUser.active, newValue: updatedUser.active },
+          { field: 'homeStreet', oldValue: originalUser.homeStreet, newValue: updatedUser.homeStreet },
+          { field: 'homeCity', oldValue: originalUser.homeCity, newValue: updatedUser.homeCity },
+          { field: 'homeState', oldValue: originalUser.homeState, newValue: updatedUser.homeState },
+          { field: 'homeZip', oldValue: originalUser.homeZip, newValue: updatedUser.homeZip },
         ],
       })
     }
@@ -205,7 +270,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || !(session.user as any).isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -220,6 +285,10 @@ export async function DELETE(
       )
     }
 
+    // Check for hard delete parameter
+    const { searchParams } = new URL(request.url)
+    const hardDelete = searchParams.get('hard') === 'true'
+
     // Prevent deleting yourself
     const currentUserId = parseInt((session.user as any).id)
     if (userId === currentUserId) {
@@ -229,36 +298,106 @@ export async function DELETE(
       )
     }
 
-    // Get user info for logging
+    // Get complete user data for backup
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, active: true },
+      include: {
+        routes: {
+          select: {
+            id: true,
+            name: true,
+            date: true,
+            status: true,
+          },
+        },
+        deliveryLogs: {
+          select: {
+            id: true,
+            addressId: true,
+            completedAt: true,
+            notes: true,
+          },
+        },
+        sessions: {
+          select: { id: true },
+        },
+      },
     })
 
-    // Soft delete by setting active to false, or hard delete
-    // Using soft delete for safety
-    await prisma.user.update({
-      where: { id: userId },
-      data: { active: false },
-    })
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
 
-    // Log the deactivation
-    await logChange({
-      userId: currentUserId,
-      userName: (session.user as any).name,
-      action: 'update',
-      entityType: 'user',
-      entityId: userId,
-      entityName: user?.name,
-      field: 'active',
-      oldValue: user?.active,
-      newValue: false,
-    })
+    if (hardDelete) {
+      // Save complete user data to changelog for potential restoration
+      const { passwordHash, passwordResetToken, passwordResetTokenExpiry, ...userDataToLog } = user
 
-    return NextResponse.json({
-      success: true,
-      message: 'User deactivated successfully',
-    })
+      await logChange({
+        userId: currentUserId,
+        userName: (session.user as any).name,
+        action: 'delete',
+        entityType: 'user',
+        entityId: userId,
+        entityName: user.name,
+        field: null,
+        oldValue: JSON.stringify(userDataToLog),
+        newValue: null,
+        metadata: {
+          deleteType: 'hard',
+          routeCount: user.routes.length,
+          deliveryLogCount: user.deliveryLogs.length,
+          restorable: true,
+        },
+      })
+
+      // Clear route assignments (set driverId to null)
+      await prisma.route.updateMany({
+        where: { driverId: userId },
+        data: { driverId: null },
+      })
+
+      // Delete sessions
+      await prisma.session.deleteMany({
+        where: { userId },
+      })
+
+      // Delete the user (delivery logs will be orphaned but kept for history)
+      await prisma.user.delete({
+        where: { id: userId },
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'User permanently deleted. Data saved to changelog for potential restoration.',
+      })
+    } else {
+      // Soft delete by setting active to false
+      await prisma.user.update({
+        where: { id: userId },
+        data: { active: false },
+      })
+
+      // Log the deactivation
+      await logChange({
+        userId: currentUserId,
+        userName: (session.user as any).name,
+        action: 'update',
+        entityType: 'user',
+        entityId: userId,
+        entityName: user.name,
+        field: 'active',
+        oldValue: String(user.active),
+        newValue: 'false',
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'User deactivated successfully',
+      })
+    }
   } catch (error) {
     console.error('Error deleting user:', error)
     return NextResponse.json(

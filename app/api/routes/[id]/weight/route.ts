@@ -20,7 +20,7 @@ export async function POST(
     }
 
     // Only admins can enter weight
-    if ((session.user as any).role !== 'admin') {
+    if (!(session.user as any).isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -1,6 +1,6 @@
-# Food Delivery Coordination App
+# Food Donation Coordination App
 
-A Progressive Web App (PWA) designed for nonprofit food delivery coordination. This application enables volunteer drivers to efficiently collect food from residential addresses and deliver to a central food pantry.
+A Progressive Web App (PWA) designed for nonprofit food donation coordination. This application enables volunteer drivers to efficiently collect donated food from residential addresses and bring it to a central food pantry.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/JavaG23/asg)
 
@@ -9,10 +9,15 @@ Thanks to Vercel for their support of open-source software.
 ## Features
 
 ### For Administrators
-- **Route Management**: Upload and manage delivery routes via CSV import
+- **Route Management**: Upload and manage pickup routes via CSV import
 - **Driver Assignment**: Assign and reassign drivers to specific routes
-- **Route Visualization**: View all routes and addresses on an interactive map
-- **Real-time Tracking**: Monitor driver progress and delivery status
+- **Route Visualization**: View all routes and driver locations on an interactive map
+- **Real-time Tracking**: Monitor driver progress and pickup status
+- **User Management**: Manage users with multiple roles (admin, driver, donor, volunteer)
+- **Bulk Operations**: Select and delete multiple users at once
+- **990 Reports**: Generate periodic reports for tax filing with donor lists and volunteer counts
+- **Event Day Reports**: Aggregate stats across multiple event days with CSV export
+- **Change Log**: Audit trail of all data modifications
 
 ### For Drivers
 - **Mobile-Optimized Interface**: Easy-to-use interface designed for use while driving
@@ -60,18 +65,22 @@ Thanks to Vercel for their support of open-source software.
 ### Route CSV
 Flexible column naming is supported:
 ```csv
-Route #,Address,City,State,Zip,Driver Email,Driver Name,Special Instructions
-Route 1,123 Main St,Fairfax,VA,22030,john@email.com,John Smith,Ring doorbell
-Route 1,456 Oak Ave,Fairfax,VA,22030,john@email.com,John Smith,
-Route 2,789 Pine Rd,Chantilly,VA,20151,jane@email.com,Jane Doe,
+Route #,Address,City,State,Zip,Driver Email,Driver Name,Special Instructions,Donor Name,Donor Email,Donor Phone
+Route 1,123 Main St,Fairfax,VA,22030,john@email.com,John Smith,Ring doorbell,Acme Foods,contact@acme.com,703-555-0001
+Route 1,456 Oak Ave,Fairfax,VA,22030,john@email.com,John Smith,,Bob Smith,bob@email.com,
+Route 2,789 Pine Rd,Chantilly,VA,20151,jane@email.com,Jane Doe,,,,
 ```
+
+**Optional columns:** Driver email, donor name/email/phone, special instructions
 
 ### Volunteer CSV
 ```csv
-First Name,Last Name,Volunteer Email,Mobile Phone Number,Route
-John,Smith,john@email.com,703-555-1234,1
-Jane,Doe,jane@email.com,703-555-5678,2
+First Name,Last Name,Volunteer Email,Mobile Phone Number,Route,Home Street,Home City,Home State,Home Zip
+John,Smith,john@email.com,703-555-1234,1,100 Driver Lane,Fairfax,VA,22030
+Jane,Doe,jane@email.com,703-555-5678,2,200 Volunteer Ave,Chantilly,VA,20151
 ```
+
+**Optional columns:** Home address fields (used for route assignment map)
 
 **Note:** Driver email is optional - routes can be imported without drivers assigned.
 
@@ -106,6 +115,49 @@ This application:
 - Does not share personal information with third parties
 - Complies with nonprofit data handling standards
 
+## Deployment & Configuration
+
+### Vercel Cron Jobs
+
+The app uses Vercel Cron Jobs to send automated pickup reminders to donors. To set this up:
+
+1. **Deploy to Vercel**: The `vercel.json` file is already configured with the cron schedule
+
+2. **Set Environment Variables** in Vercel Dashboard:
+   ```
+   CRON_SECRET=your-secure-random-string
+   ENABLE_EMAIL_REMINDERS=true
+   ```
+
+3. **Generate a CRON_SECRET**:
+   ```bash
+   openssl rand -hex 32
+   ```
+
+4. **Verify Cron Setup**:
+   - Go to your Vercel project dashboard
+   - Navigate to **Settings** > **Cron Jobs**
+   - You should see `/api/cron/pickup-reminders` scheduled for `0 8 * * *` (daily at 8 AM UTC)
+
+### Cron Job Schedule
+
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| Pickup Reminders | Daily 8 AM UTC | Sends reminders to donors based on their preference (24h or 48h before pickup) |
+
+### Email Reminders (Disabled by Default)
+
+For safety during testing, email reminders are **disabled by default**. To enable:
+
+1. Set `ENABLE_EMAIL_REMINDERS=true` in your environment variables
+2. Ensure `RESEND_API_KEY` is configured for email sending
+3. Verify `NEXTAUTH_URL` is set to your production URL
+
+**Warning**: Do not enable reminders until you have verified:
+- All test/sample data has been removed from the database
+- Real donor email addresses are in the system
+- You are ready for production use
+
 ## Technology
 
 Built with:
@@ -113,3 +165,4 @@ Built with:
 - Google Maps API for navigation
 - PWA technology for offline support
 - Prisma for database management
+- Vercel Cron Jobs for scheduled tasks
