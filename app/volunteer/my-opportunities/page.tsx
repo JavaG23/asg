@@ -145,7 +145,7 @@ export default function MyOpportunitiesPage() {
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">My Opportunities</h1>
+          <h1 className="text-xl font-bold text-gray-900">Opportunities</h1>
         </div>
       </header>
 
