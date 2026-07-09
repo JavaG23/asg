@@ -155,11 +155,11 @@ Keep instructions **brief and action-oriented**:
   - [x] Admin: Shifts removed from nav; /admin/shifts redirects to Volunteers hub "Scheduled Opportunities" tab (type filter + create/edit modals); /admin/shifts/[id] detail kept for signup approval; type modal has kind/phone/cap fields; Driver Routes is system-managed (no delete, kind locked)
   - Deferred: per-route requirements (van/SUV, lifting) on Route; per-route driver page for deep links; "no more than 2 Saturday routes" stays honor-system text
 
-  **65k. Compact opportunity tiles + detail page** — [~] CODE DONE, BLOCKED ON MIGRATION (2026-07-09)
+  **65k. Compact opportunity tiles + detail page** — [x] SHIPPED (2026-07-09, committed+pushed)
   - [x] `components/volunteer/OpportunityTile.tsx` — compact clickable tile (icon + title + date/location) replacing the big `OpportunityCard` in the "Ways to Volunteer" grid on `/volunteer/my-opportunities`; links to detail page
   - [x] `app/volunteer/opportunities/[id]/page.tsx` — opportunity-type detail page (cover banner + icon, description, manager contact, kind-specific action: Log Hours / Register / upcoming shifts). Fully supersedes `OpportunityCard`'s modals.
   - [x] Wired tile into my-opportunities: `nextShiftFor(typeId)` computes each type's earliest upcoming shift for the tile's date/location line; `iconUrl` added to shared `OpportunityTypeInfo`. `npx tsc --noEmit` passes.
-  - **⚠️ BLOCKER — DB migration not run.** Schema added nullable `OpportunityType.iconUrl` (65j pass) and the Prisma client was regenerated, but `prisma db push` was NOT run against the shared prod/dev DB. Confirmed 2026-07-09: `prisma.opportunityType.findMany()` throws `The column OpportunityType.iconUrl does not exist in the current database` → every opportunity-types endpoint (volunteer + admin) 500s → portal shows "Failed to fetch opportunity types" / detail page "Failed to load opportunity". **FIX: run `npx prisma db push` (additive nullable column, safe) — needs user authorization since shared DB.** Nothing else outstanding for 65k.
+  - [x] RESOLVED (2026-07-09): nullable `OpportunityType.iconUrl` added; `npx prisma db push` applied (user-authorized) — the "Failed to fetch opportunity types" 500 (missing column) is fixed. Verified query returns 8 active types with `iconUrl`.
   - [ ] Optional cleanup: `OpportunityCard.tsx` is now dead as a component (only its `OpportunityTypeInfo` type is still imported). Consider moving the type to a shared file and deleting the component.
 
   **65l. Volunteer dashboard cleanup + labels** — [~] IN PROGRESS (2026-07-09)
@@ -168,7 +168,13 @@ Keep instructions **brief and action-oriented**:
   - [x] Removed the dashboard Stats grid (Total Hours / Shifts This Month) — the profile page (`/volunteer/profile`) already shows lifetime Total Hours / Total Shifts, so stats now live on profile only (declutters the landing/dash)
   - **NOTE — clock-in/out not wired to shifts:** the dashboard Clock In/Out card is NOT connected to any specific shift/opportunity; it just opens a bare `VolunteerSession`. Code note left at the card in `app/volunteer/dashboard/page.tsx`.
   - [ ] TODO: hide the Clock In/Out card unless the user is signed up (approved) for an opportunity shift dated the same day they log in; show it only on days they actually have a shift. Needs the dashboard API to surface "does the user have a today-dated approved shift" (and ideally which one, so clock-in can attach `shiftId`).
-  - [ ] Consider: rename the `/volunteer/my-opportunities` page header "My Opportunities" → "Opportunities" to match the card (not done yet — only the dashboard card was renamed).
+  - [x] Renamed the `/volunteer/my-opportunities` page header "My Opportunities" → "Opportunities" to match the card (2026-07-09).
+  - [ ] Consider: profile page still has a section heading "My Opportunities" (opportunity-preferences toggles) — leave or rename for consistency.
+
+  **65m. Opportunity tile visual redesign** — [x] SHIPPED (2026-07-09, committed+pushed)
+  - [x] Full-bleed cover image across the top (~top third) of the sm+ card; title wraps to a second line instead of truncating.
+  - [x] Responsive: mobile (< sm) renders a compact list row (thumbnail + title + meta); sm+ shows the image-banner card grid. One `<Link>`, toggled via Tailwind breakpoints.
+  - [ ] Not yet visually verified on a running app with real login (desktop + mobile widths).
 
 ---
 
