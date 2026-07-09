@@ -217,6 +217,9 @@ export default function VolunteerDashboard() {
       {/* Main Content */}
       <main className="p-4 space-y-4 max-w-2xl mx-auto">
         {/* Clock In/Out Card */}
+        {/* NOTE (65l): this clock-in/out is NOT tied to any specific shift/opportunity — it
+            just opens a bare VolunteerSession. TODO: only render it when the user is signed up
+            for an opportunity shift dated today (same date as login); hide it otherwise. */}
         <div className={`card ${hasActiveSession ? 'bg-green-50 border-2 border-green-300' : ''}`}>
           {hasActiveSession ? (
             <div className="text-center">
@@ -261,28 +264,15 @@ export default function VolunteerDashboard() {
           )}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="card text-center">
-            <p className="text-3xl font-bold text-green-600">
-              {dashboardData?.totalHours.toFixed(1) || 0}
-            </p>
-            <p className="text-sm text-gray-600">Total Hours</p>
-          </div>
-          <div className="card text-center">
-            <p className="text-3xl font-bold text-gray-900">
-              {dashboardData?.shiftsThisMonth || 0}
-            </p>
-            <p className="text-sm text-gray-600">Shifts This Month</p>
-          </div>
-        </div>
+        {/* Stats moved to the profile page (65l) — lifetime Total Hours / Total Shifts
+            already live there; keeping them off the landing/dash to declutter. */}
 
-        {/* Upcoming Shifts */}
+        {/* Upcoming Opportunities */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-600" />
-              My Upcoming Shifts
+              Upcoming Opportunities
             </h3>
             <button
               onClick={() => router.push('/volunteer/shifts')}
@@ -332,7 +322,7 @@ export default function VolunteerDashboard() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No upcoming shifts</p>
+              <p>No upcoming opportunities</p>
               <button
                 onClick={() => router.push('/volunteer/shifts')}
                 className="mt-2 text-green-600 hover:text-green-700 text-sm font-medium"
@@ -350,8 +340,8 @@ export default function VolunteerDashboard() {
             className="card hover:bg-gray-50 transition-colors text-left"
           >
             <Users className="w-8 h-8 text-green-600 mb-2" />
-            <p className="font-medium text-gray-900">My Opportunities</p>
-            <p className="text-xs text-gray-500">Ways to volunteer</p>
+            <p className="font-medium text-gray-900">Opportunities</p>
+            <p className="text-xs text-gray-500">Browse ways to volunteer</p>
           </button>
           <button
             onClick={() => router.push('/volunteer/opportunities')}

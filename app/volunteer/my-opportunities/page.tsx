@@ -12,7 +12,8 @@ import { ArrowLeft, Calendar, CheckCircle, Clock, MapPin, Users } from 'lucide-r
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
 import { Button } from '@/components/shared/Button'
-import { OpportunityCard, OpportunityTypeInfo } from '@/components/volunteer/OpportunityCard'
+import { OpportunityTile } from '@/components/volunteer/OpportunityTile'
+import type { OpportunityTypeInfo } from '@/components/volunteer/OpportunityCard'
 
 interface Opportunity {
   id: number
@@ -125,6 +126,14 @@ export default function MyOpportunitiesPage() {
 
   const list = tab === 'signedUp' ? signedUp : available
 
+  // 65j: earliest upcoming shift for a type -> tile's date/location line
+  const nextShiftFor = (typeId: number) => {
+    const now = new Date()
+    return opportunities
+      .filter((o) => o.opportunityType?.id === typeId && new Date(o.date) >= now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -147,10 +156,26 @@ export default function MyOpportunitiesPage() {
         {types.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Ways to Volunteer</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {types.map((t) => (
-                <OpportunityCard key={t.id} type={t} />
-              ))}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {types.map((t) => {
+                const next = nextShiftFor(t.id)
+                return (
+                  <OpportunityTile
+                    key={t.id}
+                    type={t}
+                    dateInfo={
+                      next
+                        ? new Date(next.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : undefined
+                    }
+                    locationInfo={next?.location}
+                  />
+                )
+              })}
             </div>
             <p className="text-xs text-gray-500 mt-2">
               Not seeing an opportunity?{' '}

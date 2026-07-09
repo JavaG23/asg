@@ -18,6 +18,7 @@ export interface OpportunityTypeInfo {
   slug: string
   description: string | null
   imageUrl: string | null
+  iconUrl: string | null
   managerName: string | null
   managerPhone: string | null
   hasManager: boolean

@@ -36,6 +36,7 @@ export async function GET() {
           slug: t.slug,
           description: t.description,
           imageUrl: t.imageUrl,
+          iconUrl: t.iconUrl,
           managerName: t.managerName,
           managerPhone: t.managerPhone,
           hasManager: Boolean(t.managerEmail),

@@ -28,6 +28,7 @@ interface SeedType {
   slug: string
   description: string
   imageUrl?: string
+  iconUrl?: string
   managerName?: string
   managerEmail?: string
   managerPhone?: string
@@ -62,6 +63,7 @@ Please contact us at volunteer@dsfp.org if you have any questions.
 
 Double the value of your volunteer time! Find out if your employer recognizes their employees' volunteer hours with a gift to the Dulles South Food Pantry. Check the tool on the volunteer page of our website for a list of companies that participate in "Volunteer Grant/Dollars for Doers" programs.`,
     imageUrl: '/opportunities/self-reported-volunteer-hours-cover.jpg',
+    iconUrl: '/opportunities/self-reported-volunteer-hours-icon.png',
     managerName: 'Andi Huppert',
     managerEmail: 'volunteer@dsfp.org',
     kind: 'self-reported',
@@ -72,6 +74,7 @@ Double the value of your volunteer time! Find out if your employer recognizes th
     name: 'Unlimited Onsite Volunteer Opportunities',
     slug: 'unlimited-onsite-volunteer-opportunities',
     imageUrl: '/opportunities/unlimited-onsite-volunteer-opportunities-cover.jpg',
+    iconUrl: '/opportunities/unlimited-onsite-volunteer-opportunities-icon.png',
     description: `Shifts listed on this page are onsite volunteer opportunities available for all registered volunteers.
 
 A few things to remember when volunteering at DSFP:
@@ -101,6 +104,7 @@ A few things to remember when volunteering at DSFP:
     name: 'Limited Onsite Volunteer Opportunities',
     slug: 'limited-onsite-volunteer-opportunities',
     imageUrl: '/opportunities/limited-onsite-volunteer-opportunities-cover.jpg',
+    iconUrl: '/opportunities/limited-onsite-volunteer-opportunities-icon.png',
     description: `No more than 1 sign-up at a time for all shifts listed on this LIMITED Signup.
 
 Shifts listed on this page are onsite volunteer opportunities available for all registered volunteers.
@@ -134,6 +138,7 @@ A few things to remember when volunteering at DSFP:
     name: 'Birthday Bags',
     slug: 'birthday-bags',
     imageUrl: '/opportunities/birthday-bags-cover.jpg',
+    iconUrl: '/opportunities/birthday-bags-icon.png',
     description: `Every child should feel special on their birthday! You can help make this happen by creating Birthday Bags for our guests whose children have upcoming birthdays. Each bag is filled with:
 
 • cake mix
@@ -164,6 +169,7 @@ Double the value of your volunteer time! Find out if your employer recognizes th
     name: 'Distribution',
     slug: 'distribution',
     imageUrl: '/opportunities/distribution-cover.jpg',
+    iconUrl: '/opportunities/distribution-icon.png',
     description: `Thank you so much for helping your community by directly serving your neighbors during our distribution of food!
 
 Some notes:
@@ -188,6 +194,7 @@ Double the value of your volunteer time! Find out if your employer recognizes th
     name: 'Food Drive Signup',
     slug: 'food-drive-signup',
     imageUrl: '/opportunities/food-drive-signup-cover.jpg',
+    iconUrl: '/opportunities/food-drive-signup-icon.png',
     description: `We rely on donations to provide food to our guests and we welcome community partners who'd like to help keep our shelves stocked! Please sign up if you'd like to support the Pantry with a food drive. For our planning purposes, you will be asked to provide contact information and schedule your planned delivery date.
 
 Our normal Receiving Hours for donations are Monday, Wednesday and Saturday mornings from 10-11:30am. During holiday food drive season, additional Friday morning hours will be offered (October - December). We will attempt to accommodate alternate times if requested.
@@ -212,6 +219,7 @@ Double the value of your volunteer time! Find out if your employer recognizes th
     name: 'Kit Packing Donations',
     slug: 'kit-packing-donations',
     imageUrl: '/opportunities/kit-packing-donations-cover.jpg',
+    iconUrl: '/opportunities/kit-packing-donations-icon.png',
     description: `We rely on donations to provide food to our guests and we welcome community partners who'd like to help keep our shelves stocked! Meal Kits are a great way for groups and organizations to hold an off-site event in support of the Pantry. Please sign up if you'd like to provide the Pantry with meal kits.
 
 1. Gather a few individuals to manage a Meal Kit event and set a packing date.
@@ -248,6 +256,7 @@ Double the value of your volunteer time! Find out if your employer recognizes th
     name: 'Driver Routes',
     slug: 'driver-routes',
     imageUrl: '/opportunities/driver-routes-cover.jpg',
+    iconUrl: '/opportunities/driver-routes-icon.png',
     description: `Please take no more than 2 Saturday routes.
 
 Our volunteer Drivers assist by picking up donations from community partners, delivering Backpack Buddies bags, and helping with our recycling efforts. If you have any questions about a route before signing up, please call or email us and we'll be happy to tell you more!
@@ -275,6 +284,7 @@ async function main() {
         slug: type.slug,
         description: type.description,
         imageUrl: type.imageUrl ?? null,
+        iconUrl: type.iconUrl ?? null,
         managerName: type.managerName ?? null,
         managerEmail: type.managerEmail ?? null,
         managerPhone: type.managerPhone ?? null,
@@ -287,6 +297,7 @@ async function main() {
         name: type.name,
         description: type.description,
         imageUrl: type.imageUrl ?? null,
+        iconUrl: type.iconUrl ?? null,
         managerName: type.managerName ?? null,
         managerEmail: type.managerEmail ?? null,
         managerPhone: type.managerPhone ?? null,

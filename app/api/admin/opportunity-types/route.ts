@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
         slug: body.slug ? slugify(body.slug) : slugify(name),
         description: body.description || null,
         imageUrl: body.imageUrl || null,
+        iconUrl: body.iconUrl || null,
         managerName: body.managerName || null,
         managerEmail: body.managerEmail || null,
         managerPhone: body.managerPhone || null,

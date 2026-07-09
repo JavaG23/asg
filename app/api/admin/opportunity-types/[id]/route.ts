@@ -38,6 +38,7 @@ export async function PUT(
         ...(body.slug !== undefined && { slug: String(body.slug).trim() }),
         ...(body.description !== undefined && { description: body.description || null }),
         ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl || null }),
+        ...(body.iconUrl !== undefined && { iconUrl: body.iconUrl || null }),
         ...(body.managerName !== undefined && { managerName: body.managerName || null }),
         ...(body.managerEmail !== undefined && { managerEmail: body.managerEmail || null }),
         ...(body.managerPhone !== undefined && { managerPhone: body.managerPhone || null }),

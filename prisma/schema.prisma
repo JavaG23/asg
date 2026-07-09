@@ -378,8 +378,9 @@ model OpportunityType {
   id           Int      @id @default(autoincrement())
   name         String   @unique
   slug         String   @unique
-  description  String?  // shown on the portal card (paste from Bloomerang)
-  imageUrl     String?  // card image (store under public/opportunities/)
+  description  String?  // shown on the detail page (paste from Bloomerang)
+  imageUrl     String?  // cover/banner image (store under public/opportunities/)
+  iconUrl      String?  // small logo/icon shown on the compact tile (65j)
   managerName  String?
   managerEmail String?  // recipient of "Contact Manager" messages
   managerPhone String?  // shown on card/contact modal (65j)

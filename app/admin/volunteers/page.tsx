@@ -26,6 +26,7 @@ interface OpportunityType {
   slug: string
   description: string | null
   imageUrl: string | null
+  iconUrl: string | null
   managerName: string | null
   managerEmail: string | null
   managerPhone: string | null
@@ -68,6 +69,7 @@ const emptyTypeForm = {
   name: '',
   description: '',
   imageUrl: '',
+  iconUrl: '',
   managerName: '',
   managerEmail: '',
   managerPhone: '',
@@ -158,6 +160,7 @@ function AdminVolunteersContent() {
       name: t.name,
       description: t.description || '',
       imageUrl: t.imageUrl || '',
+      iconUrl: t.iconUrl || '',
       managerName: t.managerName || '',
       managerEmail: t.managerEmail || '',
       managerPhone: t.managerPhone || '',
@@ -523,11 +526,21 @@ function AdminVolunteersContent() {
                 />
               </div>
               <div>
-                <label className="label">Image URL (e.g. /opportunities/distribution.jpg)</label>
+                <label className="label">Cover image URL (banner on the detail page)</label>
                 <input
                   className="input w-full"
+                  placeholder="/opportunities/distribution-cover.jpg"
                   value={typeForm.imageUrl}
                   onChange={(e) => setTypeForm({ ...typeForm, imageUrl: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="label">Icon URL (small logo on the tile)</label>
+                <input
+                  className="input w-full"
+                  placeholder="/opportunities/distribution-icon.png"
+                  value={typeForm.iconUrl}
+                  onChange={(e) => setTypeForm({ ...typeForm, iconUrl: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
