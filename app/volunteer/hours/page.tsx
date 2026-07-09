@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, Clock, Calendar, History, HelpCircle, FileText } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Clock, Calendar, History, HelpCircle, FileText, Plus, X } from 'lucide-react'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
+import { Button } from '@/components/shared/Button'
 
 interface HourLog {
   id: number
@@ -15,6 +16,9 @@ interface HourLog {
   notes: string | null
   shiftDate: string | null
   shiftLocation: string | null
+  opportunityType: string | null
+  source: string
+  verified: boolean
 }
 
 interface HoursData {
@@ -25,20 +29,41 @@ interface HoursData {
   hoursThisYear: number
 }
 
-export default function VolunteerHoursPage() {
+interface TypeOption {
+  id: number
+  name: string
+  kind: string
+}
+
+function VolunteerHoursContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { status } = useSession()
   const [data, setData] = useState<HoursData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // 65j: manual "Add Hours" entry for self-reported/registration opportunities
+  const [logTypes, setLogTypes] = useState<TypeOption[]>([])
+  const [showAddModal, setShowAddModal] = useState(searchParams.get('log') === '1')
+  const [form, setForm] = useState({
+    opportunityTypeId: searchParams.get('type') || '',
+    date: '',
+    hours: '',
+    notes: '',
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [submitResult, setSubmitResult] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
     } else if (status === 'authenticated') {
       fetchHours()
+      fetchLogTypes()
     }
-  }, [status, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
 
   const fetchHours = async () => {
     try {
@@ -60,6 +85,49 @@ export default function VolunteerHoursPage() {
     }
   }
 
+  // Types that accept manual hour entry (non-fatal if unavailable)
+  const fetchLogTypes = async () => {
+    try {
+      const response = await fetch('/api/volunteer/opportunity-types')
+      const responseData = await response.json()
+      if (response.ok) {
+        setLogTypes(
+          responseData.data.types.filter((t: TypeOption) =>
+            ['self-reported', 'registration'].includes(t.kind)
+          )
+        )
+      }
+    } catch {
+      // Add Hours button simply won't show
+    }
+  }
+
+  const handleAddHours = async () => {
+    setSubmitting(true)
+    setSubmitResult(null)
+    try {
+      const response = await fetch('/api/volunteer/hours', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          opportunityTypeId: Number(form.opportunityTypeId),
+          date: form.date,
+          hours: Number(form.hours),
+          notes: form.notes,
+        }),
+      })
+      const responseData = await response.json()
+      if (!response.ok) throw new Error(responseData.error || 'Failed to log hours')
+      setSubmitResult(responseData.message || 'Hours submitted!')
+      setForm({ opportunityTypeId: '', date: '', hours: '', notes: '' })
+      await fetchHours()
+    } catch (err) {
+      setSubmitResult(err instanceof Error ? err.message : 'Failed to log hours')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
@@ -71,6 +139,8 @@ export default function VolunteerHoursPage() {
   if (status === 'loading' || loading) {
     return <Loading text="Loading your hours..." />
   }
+
+  const canAddHours = logTypes.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,12 +157,25 @@ export default function VolunteerHoursPage() {
               </button>
               <h1 className="text-xl font-bold text-gray-900">My Hours</h1>
             </div>
-            <button
-              onClick={() => router.push('/volunteer/help')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <HelpCircle className="w-5 h-5 text-gray-600" />
-            </button>
+            <div className="flex items-center gap-2">
+              {canAddHours && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setShowAddModal(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Hours
+                </Button>
+              )}
+              <button
+                onClick={() => router.push('/volunteer/help')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <HelpCircle className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -160,20 +243,25 @@ export default function VolunteerHoursPage() {
                           year: 'numeric',
                         })}
                       </p>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                        <Clock className="w-4 h-4" />
-                        {new Date(log.clockIn).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                        {' - '}
-                        {log.clockOut
-                          ? new Date(log.clockOut).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : 'In progress'}
-                      </div>
+                      {log.opportunityType && (
+                        <p className="text-sm text-gray-600 mt-0.5">{log.opportunityType}</p>
+                      )}
+                      {log.source === 'clock' && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                          <Clock className="w-4 h-4" />
+                          {new Date(log.clockIn).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {' - '}
+                          {log.clockOut
+                            ? new Date(log.clockOut).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'In progress'}
+                        </div>
+                      )}
                       {log.shiftLocation && (
                         <p className="text-sm text-gray-500 mt-1">{log.shiftLocation}</p>
                       )}
@@ -194,6 +282,15 @@ export default function VolunteerHoursPage() {
                           Active
                         </span>
                       )}
+                      {log.verified && (
+                        <span
+                          className="flex items-center gap-1 justify-end text-xs text-green-700 mt-1"
+                          title="Verified by the pantry"
+                        >
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          Verified
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -210,6 +307,102 @@ export default function VolunteerHoursPage() {
           )}
         </section>
       </main>
+
+      {/* Add Hours Modal (65j) */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900">Add Hours Worked</h3>
+              <button
+                onClick={() => {
+                  setShowAddModal(false)
+                  setSubmitResult(null)
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="label">Opportunity *</label>
+                <select
+                  className="input w-full"
+                  value={form.opportunityTypeId}
+                  onChange={(e) => setForm({ ...form, opportunityTypeId: e.target.value })}
+                >
+                  <option value="">Select an opportunity...</option>
+                  {logTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Date worked *</label>
+                  <input
+                    type="date"
+                    className="input w-full"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Hours *</label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    min={0.25}
+                    max={24}
+                    step={0.25}
+                    value={form.hours}
+                    onChange={(e) => setForm({ ...form, hours: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">What did you do? *</label>
+                <textarea
+                  className="input w-full"
+                  rows={3}
+                  maxLength={1000}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="Describe the work done to earn these hours..."
+                />
+              </div>
+            </div>
+            {submitResult && <p className="text-sm mt-2 text-gray-600">{submitResult}</p>}
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="secondary" size="sm" onClick={() => setShowAddModal(false)}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={handleAddHours}
+                loading={submitting}
+                disabled={!form.opportunityTypeId || !form.date || !form.hours || !form.notes.trim()}
+              >
+                Submit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+export default function VolunteerHoursPage() {
+  return (
+    <Suspense fallback={<Loading text="Loading your hours..." />}>
+      <VolunteerHoursContent />
+    </Suspense>
   )
 }

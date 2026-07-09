@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
     const pendingChanges = JSON.parse(user.pendingChanges)
 
     if (action === 'approve') {
-      // Apply the changes
-      const updates: Record<string, string | null | number> = {}
-      const oldValues: Record<string, string | null> = {}
-      const newValues: Record<string, string | null> = {}
+      // Apply the changes (65j: booleans allowed for role requests like isDriver)
+      const updates: Record<string, string | null | number | boolean> = {}
+      const oldValues: Record<string, string | null | boolean> = {}
+      const newValues: Record<string, string | null | boolean> = {}
 
       for (const [field, change] of Object.entries(pendingChanges.changes)) {
-        const typedChange = change as { old: string | null; new: string | null }
+        const typedChange = change as { old: string | null | boolean; new: string | null | boolean }
         updates[field] = typedChange.new
         oldValues[field] = typedChange.old
         newValues[field] = typedChange.new

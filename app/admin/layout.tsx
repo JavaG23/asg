@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { TruckIcon, LayoutDashboard, Route, Users, LogOut, Menu, FileText, History, HelpCircle, Clock, ArrowRightLeft } from 'lucide-react'
+import { TruckIcon, LayoutDashboard, Route, Users, LogOut, Menu, FileText, History, HelpCircle, Clock, ArrowRightLeft, HeartHandshake } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -16,12 +16,13 @@ export default function AdminLayout({
   const { user, hasMultipleRoles } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-//Shifts and Pickup Events temporarily removed from navigation (side Menu)
+//Pickup Events temporarily removed from navigation (side Menu)
+//Shifts folded into Volunteers hub as the Scheduled Opportunities tab (65j)
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Routes', href: '/admin/routes', icon: Route },
     { name: 'People', href: '/admin/people', icon: Users },
-  //  { name: 'Shifts', href: '/admin/shifts', icon: UserPlus },
+    { name: 'Volunteers', href: '/admin/volunteers', icon: HeartHandshake }, // #65 volunteer management
   //  { name: 'Pickup Events', href: '/admin/events', icon: Calendar },
     { name: 'Pending Changes', href: '/admin/pending-changes', icon: Clock },
     { name: 'Reports', href: '/admin/reports', icon: FileText },

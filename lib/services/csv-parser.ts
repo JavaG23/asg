@@ -1,6 +1,7 @@
 import { parse } from 'csv-parse/sync'
 import prisma from '@/lib/database/client'
 import { geocodeAddress } from './geocoding'
+import { syncDriverRoutesShift } from './driver-routes-sync'
 import type { CSVRow, ImportResult, ImportError } from '@/types'
 
 // Helper function to get value from CSV row with flexible column names
@@ -236,6 +237,12 @@ export async function parseAndImportCSV(csvContent: string, eventDate?: Date, ro
     console.log(`\n📊 Import Summary: ${routes.length} routes created`)
     console.log(`   - With drivers: ${routesWithDrivers}`)
     console.log(`   - Without drivers (need assignment): ${routesWithoutDrivers}`)
+
+    // 65j: sync the Driver Routes volunteer opportunity once for the import
+    // date (non-fatal; all routes in an import share one eventDate)
+    if (routes.length > 0) {
+      await syncDriverRoutesShift(eventDate || new Date())
+    }
 
     return {
       success: errors.length === 0 || routes.length > 0,

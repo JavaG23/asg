@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { requireAdmin } from '@/lib/auth/guards'
+
+// P2021 = table missing, P2022 = column missing. The volunteer portal tables
+// (#36/#65) are pending the deferred migration on the shared prod/dev DB, so
+// surface that clearly instead of a generic failure (task 65e).
+function missingTableResponse(error: unknown): NextResponse | null {
+  const code = (error as { code?: string })?.code
+  if (code === 'P2021' || code === 'P2022') {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          'Volunteer shift tables are not in the database yet — the schema migration is deferred until production testing is complete (see docs/volunteer-portal-buildout.md).',
+      },
+      { status: 503 }
+    )
+  }
+  return null
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Not authorized' },
-        { status: 403 }
-      )
-    }
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
 
     const shifts = await prisma.volunteerShift.findMany({
       include: {
@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
           select: {
             status: true,
           },
+        },
+        opportunityType: {
+          select: { id: true, name: true, kind: true },
         },
       },
       orderBy: {
@@ -48,6 +51,8 @@ export async function GET(request: NextRequest) {
         location: shift.location,
         spotsNeeded: shift.spotsNeeded,
         notes: shift.notes,
+        opportunityType: shift.opportunityType,
+        spotsManuallySet: shift.spotsManuallySet,
         signupCounts: {
           pending: shift.signups.filter((s) => s.status === 'pending').length,
           approved: shift.signups.filter((s) => s.status === 'approved').length,
@@ -57,37 +62,20 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching shifts:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch shifts' },
-      { status: 500 }
+    return (
+      missingTableResponse(error) ??
+      NextResponse.json({ success: false, error: 'Failed to fetch shifts' }, { status: 500 })
     )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Not authorized' },
-        { status: 403 }
-      )
-    }
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
 
     const body = await request.json()
-    const { date, startTime, endTime, location, spotsNeeded, notes } = body
+    const { date, startTime, endTime, location, spotsNeeded, notes, opportunityTypeId } = body
 
     if (!date || !startTime || !endTime || !location || !spotsNeeded) {
       return NextResponse.json(
@@ -107,6 +95,10 @@ export async function POST(request: NextRequest) {
         location,
         spotsNeeded: parseInt(spotsNeeded),
         notes: notes || null,
+        opportunityTypeId: opportunityTypeId ? parseInt(opportunityTypeId) : null,
+        // 65j: admin-created shifts are manually set — the driver-routes sync
+        // never overrides their spotsNeeded (pre-planning scenario)
+        spotsManuallySet: true,
       },
     })
 
@@ -116,9 +108,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error creating shift:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to create shift' },
-      { status: 500 }
+    return (
+      missingTableResponse(error) ??
+      NextResponse.json({ success: false, error: 'Failed to create shift' }, { status: 500 })
     )
   }
 }

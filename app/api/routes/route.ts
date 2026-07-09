@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { syncDriverRoutesShift } from '@/lib/services/driver-routes-sync'
 
 async function requireAuth() {
   const session = await getServerSession(authOptions)
@@ -159,6 +160,9 @@ export async function POST(request: NextRequest) {
         addresses: true,
       },
     })
+
+    // 65j: keep the Driver Routes volunteer opportunity in sync (non-fatal)
+    await syncDriverRoutesShift(routeDate)
 
     return NextResponse.json({
       success: true,

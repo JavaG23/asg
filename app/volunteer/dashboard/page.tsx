@@ -346,11 +346,19 @@ export default function VolunteerDashboard() {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4">
           <button
-            onClick={() => router.push('/volunteer/shifts')}
+            onClick={() => router.push('/volunteer/my-opportunities')}
+            className="card hover:bg-gray-50 transition-colors text-left"
+          >
+            <Users className="w-8 h-8 text-green-600 mb-2" />
+            <p className="font-medium text-gray-900">My Opportunities</p>
+            <p className="text-xs text-gray-500">Ways to volunteer</p>
+          </button>
+          <button
+            onClick={() => router.push('/volunteer/opportunities')}
             className="card hover:bg-gray-50 transition-colors text-left"
           >
             <Calendar className="w-8 h-8 text-green-600 mb-2" />
-            <p className="font-medium text-gray-900">Available Shifts</p>
+            <p className="font-medium text-gray-900">Calendar</p>
             <p className="text-xs text-gray-500">Browse & sign up</p>
           </button>
           <button
@@ -360,6 +368,14 @@ export default function VolunteerDashboard() {
             <History className="w-8 h-8 text-green-600 mb-2" />
             <p className="font-medium text-gray-900">My Hours</p>
             <p className="text-xs text-gray-500">View hour log</p>
+          </button>
+          <button
+            onClick={() => router.push('/volunteer/shifts')}
+            className="card hover:bg-gray-50 transition-colors text-left"
+          >
+            <Clock className="w-8 h-8 text-green-600 mb-2" />
+            <p className="font-medium text-gray-900">All Shifts</p>
+            <p className="text-xs text-gray-500">Classic shift list</p>
           </button>
         </div>
 

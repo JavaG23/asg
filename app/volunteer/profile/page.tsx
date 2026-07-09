@@ -7,6 +7,7 @@ import { ArrowLeft, User, Mail, Phone, Key, HelpCircle, ArrowRightLeft, LogOut, 
 import { signOut } from 'next-auth/react'
 import { Loading } from '@/components/shared/Loading'
 import { ErrorMessage } from '@/components/shared/ErrorMessage'
+import { OpportunityPreferences } from '@/components/volunteer/OpportunityPreferences'
 
 interface ProfileData {
   id: number
@@ -170,6 +171,12 @@ export default function VolunteerProfilePage() {
               <p className="text-xs text-gray-500">Update your login password</p>
             </div>
           </button>
+        </div>
+
+        {/* Opportunity Preferences (#65) */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">My Opportunities</h3>
+          <OpportunityPreferences />
         </div>
 
         {/* Thank You Message */}

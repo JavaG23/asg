@@ -54,6 +54,13 @@ model User {
   volunteerHourLogs    VolunteerHourLog[]
   processedOnboardings PendingOnboarding[]
 
+  // Volunteer portal build-out (#65)
+  opportunityPreferences UserOpportunityPreference[]
+
+  // 65j
+  hourLogVerifications     VolunteerHourLog[]        @relation("HourLogVerifications")
+  opportunityRegistrations OpportunityRegistration[]
+
   @@index([email])
   @@index([bloomerangId])
 }
@@ -69,11 +76,13 @@ model Route {
   totalWeight Float?    // Total food weight in pounds (#14)
   startedAt   DateTime? // When driver started the route (#26)
   weighedAt   DateTime? // When food was weighed at distribution center (#26)
+  completedAt DateTime? // When all stops were completed (65j) - set for both route types
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   driver    User?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
   addresses Address[]
+  hourLogs  VolunteerHourLog[] // auto-logged driver hours (65j)
 
   @@index([driverId])
   @@index([date])
@@ -259,10 +268,22 @@ model VolunteerShift {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Volunteer portal build-out (#65) - nullable for backward compatibility
+  opportunityTypeId Int?
+  templateId        Int? // set when generated from a RecurringShiftTemplate
+  // 65j: true when an admin created this shift or edited its spots manually
+  // (e.g. "30 drivers needed Saturday" before routes exist). The driver-routes
+  // sync never overwrites spotsNeeded on manually-set shifts.
+  spotsManuallySet  Boolean @default(false)
+
   signups     VolunteerSignup[]
   hourLogs    VolunteerHourLog[]
+  opportunityType OpportunityType?        @relation(fields: [opportunityTypeId], references: [id], onDelete: SetNull)
+  template        RecurringShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([date])
+  @@index([opportunityTypeId])
+  @@index([templateId])
 }
 
 // Volunteer shift sign-ups
@@ -298,11 +319,25 @@ model VolunteerHourLog {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shift        VolunteerShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  // 65j: attribution + verification
+  opportunityTypeId Int?    // which opportunity these hours are for
+  routeId           Int?    // set for auto-logged driver-route hours (also dedup key)
+  source            String  @default("clock") // clock | manual | route
+  verified          Boolean @default(false)   // admin-verified (auto route logs are verified)
+  verifiedById      Int?
+  verifiedAt        DateTime?
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift           VolunteerShift?  @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  opportunityType OpportunityType? @relation(fields: [opportunityTypeId], references: [id], onDelete: SetNull)
+  route           Route?           @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  verifiedBy      User?            @relation("HourLogVerifications", fields: [verifiedById], references: [id])
 
   @@index([userId])
   @@index([clockIn])
+  @@index([opportunityTypeId])
+  @@index([routeId])
+  @@index([verified])
 }
 
 // ============================================
@@ -325,4 +360,112 @@ model PendingOnboarding {
   @@index([email])
   @@index([status])
   @@index([type])
+}
+
+// ============================================
+// VOLUNTEER PORTAL BUILD-OUT MODELS (#65)
+// Bloomerang-style opportunity types, recurring
+// schedules, and per-user opportunity preferences.
+// NOTE: Do NOT migrate until production testing is
+// complete (shared prod/dev database). All changes
+// are additive (new tables + nullable columns).
+// ============================================
+
+// An opportunity category (e.g. "Distribution", "Birthday Bags",
+// "Self-reported Service Hours"). Mirrors the Bloomerang opportunity
+// cards: description + image + a manager who can be contacted.
+model OpportunityType {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  slug         String   @unique
+  description  String?  // shown on the portal card (paste from Bloomerang)
+  imageUrl     String?  // card image (store under public/opportunities/)
+  managerName  String?
+  managerEmail String?  // recipient of "Contact Manager" messages
+  managerPhone String?  // shown on card/contact modal (65j)
+  // How volunteers engage with this opportunity (65j):
+  //   shifts        - sign up for scheduled shifts (default)
+  //   routes        - driver routes; shifts synced from the Route table
+  //   self-reported - no signup; volunteers log hours directly
+  //   registration  - community partner registers an event + planned delivery date
+  kind                 String  @default("shifts")
+  maxConcurrentSignups Int?    // per-volunteer cap on active signups across this type (null = unlimited)
+  systemManaged        Boolean @default(false) // e.g. Driver Routes: not deletable, kind locked
+  active               Boolean @default(true)
+  sortOrder            Int     @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  shifts          VolunteerShift[]
+  templates       RecurringShiftTemplate[]
+  userPreferences UserOpportunityPreference[]
+  hourLogs        VolunteerHourLog[]
+  registrations   OpportunityRegistration[]
+
+  @@index([active, sortOrder])
+}
+
+// Community-partner registration for kind='registration' opportunities
+// (Food Drive Signup, Kit Packing Donations): contact info + planned
+// delivery date, tracked in-app with a status the admin advances. (65j)
+model OpportunityRegistration {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  opportunityTypeId Int
+  plannedDate       DateTime // planned delivery/drop-off date
+  phone             String?
+  message           String?
+  status            String   @default("pending") // pending | confirmed | completed | cancelled
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunityType OpportunityType @relation(fields: [opportunityTypeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([opportunityTypeId])
+  @@index([status])
+  @@index([plannedDate])
+}
+
+// Recurring schedule that generates VolunteerShift rows
+// (e.g. "Distribution: every Tue/Thu 09:00-12:00, 6 volunteers").
+model RecurringShiftTemplate {
+  id                Int       @id @default(autoincrement())
+  opportunityTypeId Int
+  frequency         String    @default("weekly") // weekly | biweekly | monthly
+  daysOfWeek        String    // JSON array of weekday numbers 0(Sun)-6(Sat), e.g. "[2,4]"
+  startTime         String    // "09:00"
+  endTime           String    // "12:00"
+  location          String    @default("Distribution Center")
+  spotsNeeded       Int
+  notes             String?
+  startDate         DateTime  // first date shifts may be generated for
+  endDate           DateTime? // null = open-ended
+  generateDaysAhead Int       @default(28) // rolling window for shift generation
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  opportunityType OpportunityType  @relation(fields: [opportunityTypeId], references: [id], onDelete: Cascade)
+  shifts          VolunteerShift[]
+
+  @@index([opportunityTypeId])
+  @@index([active])
+}
+
+// Which opportunity types a volunteer wants shown in their portal.
+// Set during onboarding, editable from the profile page.
+// Convention: a user with ZERO rows sees ALL active types (opt-out model
+// so existing volunteers keep a working portal without setup).
+model UserOpportunityPreference {
+  id                Int @id @default(autoincrement())
+  userId            Int
+  opportunityTypeId Int
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunityType OpportunityType @relation(fields: [opportunityTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityTypeId])
+  @@index([userId])
 }

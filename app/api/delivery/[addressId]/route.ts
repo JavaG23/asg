@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { logDriverRouteHours } from '@/lib/services/driver-routes-sync'
 
 /**
  * PUT /api/delivery/[addressId]
@@ -105,8 +106,11 @@ export async function PUT(
         const newStatus = route.routeType === 'bag_delivery' ? 'completed' : 'pending_weight'
         await prisma.route.update({
           where: { id: route.id },
-          data: { status: newStatus },
+          // 65j: completedAt marks when all stops were done (both route types)
+          data: { status: newStatus, completedAt: new Date() },
         })
+        // 65j: auto-log the driver's volunteer hours (non-fatal, deduped by routeId)
+        await logDriverRouteHours(route.id)
       } else if (route.status === 'pending') {
         // Mark route as active when first delivery is made and record start time
         await prisma.route.update({

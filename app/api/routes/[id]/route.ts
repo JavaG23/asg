@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import prisma from '@/lib/database/client'
 import { authOptions } from '@/lib/auth/config'
 import { logFieldChanges, logChange } from '@/lib/services/changelog'
+import { syncDriverRoutesShift } from '@/lib/services/driver-routes-sync'
 
 export async function GET(
   request: NextRequest,
@@ -178,10 +179,10 @@ export async function DELETE(
       )
     }
 
-    // Get route info for logging
+    // Get route info for logging (+ date for the driver-routes shift sync, 65j)
     const routeInfo = await prisma.route.findUnique({
       where: { id: routeId },
-      select: { name: true },
+      select: { name: true, date: true },
     })
 
     // Use a transaction to delete route and all related records
@@ -213,6 +214,11 @@ export async function DELETE(
         where: { id: routeId },
       })
     })
+
+    // 65j: keep the Driver Routes volunteer opportunity in sync (non-fatal)
+    if (routeInfo?.date) {
+      await syncDriverRoutesShift(routeInfo.date)
+    }
 
     // Log the deletion
     if (session?.user) {

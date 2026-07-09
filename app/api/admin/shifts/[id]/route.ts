@@ -2,6 +2,52 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth/config'
 import prisma from '@/lib/database/client'
+import { requireAdmin } from '@/lib/auth/guards'
+
+// 65j: edit a shift (esp. revising a pre-planned driver count).
+// Editing spots marks the shift manually-set so the routes sync won't
+// override it.
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAdmin()
+    if ('error' in auth) return auth.error
+
+    const { id } = await params
+    const shiftId = parseInt(id, 10)
+    const body = await request.json()
+
+    const shift = await prisma.volunteerShift.update({
+      where: { id: shiftId },
+      data: {
+        ...(body.spotsNeeded !== undefined && {
+          spotsNeeded: parseInt(body.spotsNeeded),
+          spotsManuallySet: true,
+        }),
+        ...(body.startTime !== undefined && { startTime: body.startTime }),
+        ...(body.endTime !== undefined && { endTime: body.endTime }),
+        ...(body.location !== undefined && { location: body.location }),
+        ...(body.notes !== undefined && { notes: body.notes || null }),
+      },
+    })
+
+    return NextResponse.json({ success: true, data: shift })
+  } catch (error: any) {
+    if (error?.code === 'P2025') {
+      return NextResponse.json(
+        { success: false, error: 'Shift not found' },
+        { status: 404 }
+      )
+    }
+    console.error('Error updating shift:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update shift' },
+      { status: 500 }
+    )
+  }
+}
 
 export async function GET(
   request: NextRequest,

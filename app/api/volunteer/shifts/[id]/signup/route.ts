@@ -49,6 +49,7 @@ export async function POST(
     const shift = await prisma.volunteerShift.findUnique({
       where: { id: shiftId },
       include: {
+        opportunityType: true,
         _count: {
           select: {
             signups: {
@@ -73,6 +74,45 @@ export async function POST(
         { success: false, error: 'Cannot sign up for past shifts' },
         { status: 400 }
       )
+    }
+
+    // 65j: driver-route opportunities require the driver role (running a
+    // route needs driver portal access). The UI offers a "request driver
+    // access" flow on this code.
+    if (shift.opportunityType?.kind === 'routes' && !user.isDriver) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'DRIVER_ROLE_REQUIRED',
+          error: 'Driving requires an approved driver role',
+        },
+        { status: 403 }
+      )
+    }
+
+    // 65j: per-type concurrent signup cap (e.g. Limited Onsite: 1 at a time)
+    if (shift.opportunityType?.maxConcurrentSignups != null) {
+      const activeCount = await prisma.volunteerSignup.count({
+        where: {
+          userId: user.id,
+          status: { in: ['pending', 'approved', 'waitlisted'] },
+          shift: {
+            opportunityTypeId: shift.opportunityTypeId,
+            date: { gte: new Date() },
+            id: { not: shiftId },
+          },
+        },
+      })
+      if (activeCount >= shift.opportunityType.maxConcurrentSignups) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'CONCURRENT_LIMIT',
+            error: `This opportunity allows only ${shift.opportunityType.maxConcurrentSignups} active sign-up${shift.opportunityType.maxConcurrentSignups === 1 ? '' : 's'} at a time. Complete or cancel your existing sign-up first.`,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Check if already signed up
