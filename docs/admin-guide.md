@@ -307,7 +307,7 @@ The app can automatically send email reminders to donors before their scheduled 
 
 ### How Reminders Work
 
-1. Donors opt-in to pickup events through their Donor Portal
+1. Donors opt-in to pickup events through their Donations Portal
 2. When opting in, they choose a reminder preference:
    - **24 hours before**: Reminder sent the day before pickup
    - **48 hours before**: Reminder sent two days before pickup

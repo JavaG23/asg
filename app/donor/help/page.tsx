@@ -56,7 +56,7 @@ export default function DonorHelpPage() {
               </button>
               <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Book className="w-5 h-5 text-primary-600" />
-                Donor Guide
+                Donations Guide
               </h1>
             </div>
             <button

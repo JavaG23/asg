@@ -104,7 +104,7 @@ export default function DonorDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Heart className="w-6 h-6 text-red-500" />
-              <h1 className="text-xl font-bold text-gray-900">Donor Dashboard</h1>
+              <h1 className="text-xl font-bold text-gray-900">Donations Dashboard</h1>
             </div>
             <div className="flex items-center gap-2">
               {hasMultipleRoles && (

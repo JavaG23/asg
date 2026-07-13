@@ -134,7 +134,7 @@ export default function SelectRolePage() {
               className="w-full btn bg-red-500 hover:bg-red-600 text-white py-4 text-lg flex items-center justify-center gap-3"
             >
               <Heart className="w-6 h-6" />
-              Continue as Donor
+              Continue to Donations
             </button>
           )}
 

@@ -225,6 +225,36 @@ export async function PUT(
       },
     })
 
+    // Ensure a donor-flagged user has a linked Donor record. The signup-approval
+    // flow creates User + Donor together, but toggling isDonor here previously
+    // only set the boolean — leaving user.donor null, which every donor API
+    // rejects as "User is not a donor". Link an existing unlinked Donor by email,
+    // else create one. Best-effort: never fail the user update over this.
+    if (isDonor === true) {
+      try {
+        const alreadyLinked = await prisma.donor.findUnique({ where: { userId } })
+        if (!alreadyLinked) {
+          const byEmail = updatedUser.email
+            ? await prisma.donor.findUnique({ where: { email: updatedUser.email } })
+            : null
+          if (byEmail && byEmail.userId == null) {
+            await prisma.donor.update({ where: { id: byEmail.id }, data: { userId } })
+          } else if (!byEmail) {
+            await prisma.donor.create({
+              data: {
+                userId,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+              },
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to link/create Donor record for user', userId, err)
+      }
+    }
+
     // Log changes
     if (originalUser) {
       await logFieldChanges({

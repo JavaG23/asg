@@ -1,6 +1,6 @@
-# ASG App - Donor Guide
+# ASG App - Donations Guide
 
-Welcome to the A Simple Gesture (ASG) App donor guide. Thank you for participating in our food donation program!
+Welcome to the A Simple Gesture (ASG) App donations guide. Thank you for participating in our food donation program!
 
 ---
 
